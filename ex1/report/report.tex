@@ -1,0 +1,37 @@
+% !TeX spellcheck = en_US
+\documentclass[sigconf,nonacm]{acmart}
+\settopmatter{printacmref=false}
+\pagestyle{empty}
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+\copyrightyear{2020}
+\acmYear{2020}
+\setcopyright{rightsretained}
+\begin{document}
+\title{Security, Privacy \& Explainability in Machine Learning}
+\subtitle{Exercise 1: Record-Linkage Attack}
+\author{Thomas Jirout}
+\email{thomas.jirout@tuwien.ac.at}
+\affiliation{Mat.Nr. 01525606}
+\author{Helmuth Breitenfellner}
+\email{helmuth.breitenfellner@student.tuwien.ac.at}
+\affiliation{Mat.Nr. 08725866}
+\begin{abstract}
+In this task we have been working on record-linkage attack.
+For this we chose the dataset DBLP-Scholar provided by the University Leipzig\cite{DataSets},\cite{kopcke2010evaluation}
+and used the Python Record Linkage Toolkit\cite{de_bruin_j_2019_3559043}.
+
+This report summarizes the identification of sensitive attributes, attributes
+used for linking, and the performance of the record-linkage attack.
+\end{abstract}
+\keywords{Security, Privacy, Machine Learning, Record Linkage, Python}
+\maketitle
+\section{Task description}
+\section{Datasets}
+\subsection{Sensitive attributes}
+\subsection{Attributes used for linking}
+\section{Evaluation \& Summary}
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{report}
+\end{document}
