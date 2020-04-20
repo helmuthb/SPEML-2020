@@ -2,5 +2,6 @@
 .vscode
 venv
 SPEM_env
+venv
 
 dlbp_scholar_matches.csv
