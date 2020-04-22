@@ -28,10 +28,97 @@ used for linking, and the performance of the record-linkage attack.
 \keywords{Security, Privacy, Machine Learning, Record Linkage, Python}
 \maketitle
 \section{Task description}
+
+When performing a record linkage attack, there are a couple of steps
+to be done:
+\begin{itemize}
+\item Acquire datasets
+\item Cleanup \& pre-process data
+\item Identify candidate pairs for linkage
+\item Calculate matches on field-levels
+\item Classify linked records
+\item Evaluate classification
+\end{itemize}
+
+\subsection{Acquire datasets}
+
+We were using the evaluation datasets, provided by the University Leipzig.
+These datasets are already harmonized, i.e. the columns have the same names,
+and there is also a set of "'ground truth"' linkage information
+which we were using for the evaluation.
+
+\subsection{Cleanup \& pre-processing}
+
+Datasets contain errors: wrongly encoded strings, typos, or
+incorrect years.
+The purpose of the cleanup step is to reduce the influence of these
+errors.
+Approaches available include:
+\begin{itemize}
+\item Fuzzy text encoding, e.g. "'soundex"' code
+\item Harmonization, e.g. lowercase of all text, removal of non-text characters
+\end{itemize}
+
+\subsection{Identify candidate pairs}
+
+For performing a record linkage attack, one would have to compare each
+record of the first with each record of the second dataset.
+This becomes quickly infeasible once datasets reach hundred thousands
+of records.
+
+One approach to reduce this effort is using "'blocking"'.
+Here attributes are looked for which \emph{have} to agree for a
+match to be considered.
+Possible choice could be years where the errors are assumed to be
+less prominent.
+
+A variant of blocking is using a neighborhood. Instead of only
+considering candidates with the same value one allows a small
+difference of the values between the datasets.
+
+Both blocking and neighborhoods significantly reduce the number
+of candidate pairs to be inspected.
+
+\subsection{Calculate matches on field-level}
+
+\subsection{Classify linked records}
+
+\subsection{Evaluate classification}
+
 \section{Datasets}
+
+We used the following two datasets:
+\begin{description}
+\item[DBLP:] Publication records from the Digital Bibliography \& Library Project
+\item[Scholar:] Publication records from Google Scholar
+\end{description}
+
 \subsection{Sensitive attributes}
+
+Normally datasets of articles do not contain sensitive information,
+and authors would like to have the contained data shared with
+as many people as possible.
+
+For the purpose of out evaluation we were qualifying the
+ID on Google Scholar as sensitive.
+
+The idea is that through these ID values more information
+can potentially be revealed, e.g. citations of the authors.
+
 \subsection{Attributes used for linking}
+
+We were using the following attributes for linking:
+\begin{description}
+\item[Name:] Name of the publication
+\item[Venue:] Venue of the publication
+\item[Authors:] Names of the authors
+\end{description}
+
 \section{Evaluation \& Summary}
+
+For the evaluation we looked at the \emph{F1-score} as a unified
+measure of both recall and precision.
+
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{report}
 \end{document}
