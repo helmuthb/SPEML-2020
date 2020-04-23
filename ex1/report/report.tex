@@ -81,6 +81,21 @@ of candidate pairs to be inspected.
 
 \subsection{Calculate matches on field-level}
 
+For comparing strings there are multiple methods to gather a measure
+of similarity supported by the Record Linkage Toolkit.
+\begin{description}
+\item[Levenshtein Distance:] The Levenshtein Distance represents the
+number of insertions, deletions and substitutions required to change
+from one to the other string.
+\item[Jaro Distance:] The Jaro distance gives a floating point value
+in the interval [0,1] where 0 represents complete dissimilarity and 1
+represents identical strings.
+\item[Jaro-Winkler Distance:]
+This is an improvement on the Jaro distance which also
+favors matches of longer common prefixes.
+\item[]
+\end{description}
+
 \subsection{Classify linked records}
 
 \subsection{Evaluate classification}
