@@ -84,21 +84,59 @@ of candidate pairs to be inspected.
 For comparing strings there are multiple methods to gather a measure
 of similarity supported by the Record Linkage Toolkit.
 \begin{description}
-\item[Levenshtein Distance:] The Levenshtein Distance represents the
-number of insertions, deletions and substitutions required to change
+\item[Levenshtein:]
+The Levenshtein distance \cite{Levenshtein}
+represents the number of edits required to change
 from one to the other string.
-\item[Jaro Distance:] The Jaro distance gives a floating point value
+\item[Damerau-Levenshtein:]
+This is an enhancement suggested by Damerau \cite{Damerau} which
+added an operation (transpose) to the set of possible edits.
+\item[Jaro:]
+The Jaro distance \cite{Jaro} gives a floating point value
 in the interval [0,1] where 0 represents complete dissimilarity and 1
 represents identical strings.
-\item[Jaro-Winkler Distance:]
-This is an improvement on the Jaro distance which also
-favors matches of longer common prefixes.
-\item[]
+\item[Jaro-Winkler:]
+This is an improvement on the Jaro distance described by Winker \cite{Winkler}
+which also favors matches of longer common prefixes.
+\item[Q-gram:]
+This is an approximation for the Damerau-Levenshtein distance
+described by Ukkonen \cite{Ukkonen}
+which is quicker to calculate.
+\item[Cosine:]
+This is the usual cosine similarity, applied on the characters of
+the strings.
+\item[Smith-Waterman:]
+This algorithm \cite{Smith-Waterman}, originally designed for finding similarities in
+chemical molecules, looks for long identical subsequences to identify the similarity
+of two strings.
 \end{description}
+
+An alternative to using these algorithms is using a phonetic code in
+the pre-processing like soundex and then only allowing exact matches.
 
 \subsection{Classify linked records}
 
-\subsection{Evaluate classification}
+To find the matches is a classification problem: given the calculated features
+of field similarity, is this pair a real match?
+
+There are multiple approaches implemented in the recordlinkage toolkit.
+
+Some of them are supervised approaches, like \emph{Logistic Regression},
+\emph{Naive Bayes}, \emph{Support Vector Machine}.
+These approaches need a training phase to get the best parameters for
+the classification.
+
+Others are unsupervised, like \emph{KMeans Clustering} or
+\emph{Expectation / Conditional Maximization}.
+
+\subsection{Evaluate}
+
+There are multiple metrics for evaluating the quality of the classification.
+
+We opted for metrics which do not count the number of pairs, as we felt
+this is limiting in the results.
+Therefore we opted for using the F1 score when looking at the quality
+of the record linkage.
 
 \section{Datasets}
 
