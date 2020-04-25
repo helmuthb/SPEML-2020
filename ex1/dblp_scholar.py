@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from recordlinkage import compare
 # import utility functions for dealing with datasets
 from utils import read_data, preproc_attributes, split_train_test
+import numpy as np
 
 # set debug flag:
 debug = True
@@ -257,6 +258,60 @@ def plot_experiment(x_list, classes, vals, filename, label=None, logscale=False)
     saveto = 'debug_'+filename if debug else filename
     plt.savefig(saveto, bbox_inches='tight')
 
+# Helper function: plot three lists into a bar plot
+def plot_experiment_bars(x_list, classes, vals, filename, label=None, logscale=False):
+    # find maximum values
+    max_v = max(vals)
+
+    # find unique class values
+    if classes is None:
+        classes = [0] * len(x_list)
+    unique_classes = list(set(classes))
+    c_idx = lambda cval: unique_classes.index(cval)
+    
+    fig, ax = plt.subplots()
+    fig.set_figwidth(10)
+    fig.set_figheight(5)
+
+    # calculate width of bars
+    ccount = len(unique_classes)
+    width = .7/ccount
+    print(width)
+
+    # get x indices
+    unique_x = list(set(x_list))
+    x = np.arange(len(unique_x))
+    x_idx = lambda xval: unique_x.index(xval)
+
+    # calculate x-pos for xval and class
+    x_pos = lambda xval, cval: x_idx(xval) + width*c_idx(cval) - 0.175
+
+    if max_v <= 1 and not logscale:
+        ax.set_ylim(0, 1)
+
+    for cl in unique_classes:
+        xs = []
+        ys = []
+        for i in range(len(x_list)):
+            if cl != classes[i]: continue
+            _x = x_pos(x_list[i], classes[i])
+            _y = vals[i]
+            xs.append(_x)
+            ys.append(_y)
+        ax.bar(xs, ys, width, label=cl)
+    ax.set_xticks(x)
+    ax.set_xticklabels(unique_x)
+    ax.tick_params(labelrotation=45)
+    if len(unique_classes) > 1:
+        ax.legend()
+    if logscale:
+        ax.set_yscale('log')
+    if label:
+        ax.set_ylabel(label)
+    plt.show()
+    saveto = 'debug_'+filename if debug else filename
+    plt.savefig(saveto, bbox_inches='tight')
+
 # %%
 
 # Experiment 1: compare influence of preprocessing (using two comparison mechanisms)
@@ -275,7 +330,7 @@ if debug or not os.path.exists('eval_preprocessing.pdf'):
         l_preproc.append(preproc_desc)
         l_comp.append(comp_desc)
         l_fscore.append(fscore)
-    plot_experiment(l_preproc, l_comp, l_fscore, 'eval_preprocessing.pdf', 'F1-score')
+    plot_experiment_bars(l_preproc, l_comp, l_fscore, 'eval_preprocessing.pdf', 'F1-score')
 
 # %%
 
@@ -302,7 +357,7 @@ if debug or not os.path.exists('eval_indexing.pdf') or not os.path.exists('eval_
         l_winlen.append(winlen)
         l_metric.append('f1score')
         l_score.append(fscore)
-    plot_experiment(l_winlen, l_metric, l_score, 'eval_indexing.pdf')
+    plot_experiment_bars(l_winlen, l_metric, l_score, 'eval_indexing.pdf')
 
     # plot time
     l_winlen = []
@@ -320,7 +375,7 @@ if debug or not os.path.exists('eval_indexing.pdf') or not os.path.exists('eval_
         l_winlen.append(winlen)
         l_step.append('classify')
         l_time.append(time_classify)
-    plot_experiment(l_winlen, l_step, l_time, 'eval_indexing2.pdf', 'Runtime (ms)')
+    plot_experiment_bars(l_winlen, l_step, l_time, 'eval_indexing2.pdf', 'Runtime (ms)')
 
 # %%
 
@@ -340,8 +395,8 @@ if debug and (not os.path.exists('debug_eval_comparison.pdf') or not os.path.exi
         l_comp.append(comp_description)
         l_fscore.append(fscore)
         l_time.append(time_compare)
-    plot_experiment(l_comp, None, l_fscore, 'eval_comparison.pdf', 'F1-score')
-    plot_experiment(l_comp, None, l_time, 'eval_comparison2.pdf', 'Runtime (ms)', True)
+    plot_experiment_bars(l_comp, None, l_fscore, 'eval_comparison.pdf', 'F1-score')
+    plot_experiment_bars(l_comp, None, l_time, 'eval_comparison2.pdf', 'Runtime (ms)', True)
 
 # %%
 
@@ -364,7 +419,7 @@ if debug or not os.path.exists('eval_classifier.pdf') or not os.path.exists('eva
         l_clf.append(clf_desc)
         l_preproc.append(comp_desc+"_"+preproc_desc)
         l_fscore.append(fscore)
-    plot_experiment(l_clf, l_preproc, l_fscore, 'eval_classifier.pdf', 'F1-score')
+    plot_experiment_bars(l_clf, l_preproc, l_fscore, 'eval_classifier.pdf', 'F1-score')
 
     # plot runtime
     l_clf = []
@@ -379,4 +434,4 @@ if debug or not os.path.exists('eval_classifier.pdf') or not os.path.exists('eva
         l_clf.append(clf_desc)
         l_step.append('classify')
         l_time.append(time_classify)
-    plot_experiment(l_clf, l_step, l_time, 'eval_classifier2.pdf', 'Runtime (ms)', True)
+    plot_experiment_bars(l_clf, l_step, l_time, 'eval_classifier2.pdf', 'Runtime (ms)', True)
