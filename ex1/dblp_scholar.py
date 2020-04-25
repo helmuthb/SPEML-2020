@@ -27,6 +27,9 @@ if debug and "display" in dir():
     display(dataScholar)
     display(links)
 
+# change into figures folder for exports
+os.chdir('figures')
+
 # ## 2. Cleaning and Pre-Processing
 
 # cleaning: bring all to lowercase, remove unwanted tokens
