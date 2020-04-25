@@ -10,7 +10,7 @@ import time
 import matplotlib.pyplot as plt
 from recordlinkage import compare
 # import utility functions for dealing with datasets
-from utils import read_data, clean_attributes
+from utils import read_data, clean_attributes, split_train_test
 
 # set debug flag:
 debug = False
@@ -21,7 +21,7 @@ debug = False
 dataDBLP, dataScholar, links = read_data(
     'DBLP1', 'Scholar', 'DBLP-Scholar_perfectMapping', debug)
 
-if debug:
+if debug and "display" in dir():
     display(dataDBLP)
     display(dataScholar)
     display(links)
@@ -32,10 +32,19 @@ if debug:
 dataDBLP = clean_attributes(dataDBLP, ['title', 'authors', 'venue'])
 dataScholar = clean_attributes(dataScholar, ['title', 'authors', 'venue'])
 # show the dataframes
-if debug:
+if debug and "display" in dir():
     display(dataDBLP)
     display(dataScholar)
 
+#%%
+
+# Split into train and test dataset
+dataDBLP_train, dataScholar_train, links_train, \
+    dataDBLP_test, dataScholar_test, links_test = split_train_test(
+        dataDBLP, dataScholar, links)
+if debug:
+    print(f"Sizes of train set: {len(dataDBLP_train)}, {len(dataScholar_train)}, {len(links_train)}")
+    print(f"Sizes of test set: {len(dataDBLP_test)}, {len(dataScholar_test)}, {len(links_test)}")
 # %% 
 
 def print_experiment_evaluation(matches):
@@ -43,16 +52,15 @@ def print_experiment_evaluation(matches):
     recall = 0
     fscore = 0
 
-    if len(match) > 0:
-        precision = recordlinkage.precision(links, match)
-        recall = recordlinkage.recall(links, match)
-        fscore = recordlinkage.fscore(links, match)
+    if len(matches) > 0:
+        precision = recordlinkage.precision(links_test, matches)
+        recall = recordlinkage.recall(links_test, matches)
+        fscore = recordlinkage.fscore(links_test, matches) if recall+precision>0 else 0
         
     print(f"Precision: {precision}")
     print(f"Recall: {recall}")
     print(f"F-score: {fscore}")
-    display(recordlinkage.confusion_matrix(links, matches))
-
+    print(recordlinkage.confusion_matrix(links_test, matches))
 
     return precision, recall, fscore
 
@@ -63,15 +71,19 @@ def run_experiment(indexer_variant, comparison_variant, classification_variant):
     if indexer_variant == 0:   
         config_description += "n3"
         indexer = recordlinkage.index.SortedNeighbourhood('year')
-        pairs = indexer.index(dataDBLP, dataScholar)
+        pairs_train = indexer.index(dataDBLP_train, dataScholar_train)
+        pairs_test = indexer.index(dataDBLP_test, dataScholar_test)
         if debug:
-            print(f"Number of candidates (sortedneighbour window=3):\n{len(pairs)}")
+            print("Number of candidates (sortedneighbour window=3):")
+            print(f"{len(pairs_train)} (train), {len(pairs_test)} (test)")
     elif indexer_variant == 1:
         config_description += "n1"
         indexer = recordlinkage.index.SortedNeighbourhood('year', window=1)
-        pairs = indexer.index(dataDBLP, dataScholar)
+        pairs_train = indexer.index(dataDBLP_train, dataScholar_train)
+        pairs_test = indexer.index(dataDBLP_test, dataScholar_test)
         if debug:
-            print(f"Number of candidates (sortedneighbour window=1)):\n{len(pairs)}")
+            print("Number of candidates (sortedneighbour window=1)):")
+            print(f"{len(pairs_train)} (train), {len(pairs_test)} (test)")
     else:
         print("unknown indexer variant %d" % indexer_variant)
         return
@@ -93,29 +105,41 @@ def run_experiment(indexer_variant, comparison_variant, classification_variant):
         print("unknown comparison variant %d", comparison_variant)
         return 
 
+    print("Start compare for training data set")
     start = time.time()
-    result = comp.compute(pairs, dataDBLP, dataScholar)
-    print("comparing took: %.2fs" % (time.time() - start))
+    result_train = comp.compute(pairs_train, dataDBLP_train, dataScholar_train)
+    print("Compare on training data took %.2fs" % (time.time() - start))
+    print("Start compare for test data set")
+    start = time.time()
+    result_test = comp.compute(pairs_test, dataDBLP_test, dataScholar_test)
+    print("Compare on training data took %.2fs" % (time.time() - start))
 
-    variants = 3
+    variants = 4
     matches = []
     for i in range(variants):
         classification_variant = i
         if classification_variant == 0:
-            match = result[result[0]+result[1]+result[2]>2].index
+            match = result_test[result_test[0]+result_test[1]+result_test[2]>2].index
             print("simple classifier")
             # simple classifier: add the values and use a threshold of 2
             matches.append((config_description, "Basic", match))
         elif classification_variant == 1:
             classifier = recordlinkage.LogisticRegressionClassifier()
-            match = classifier.fit_predict(result, links)
+            classifier.fit(result_train, links_train)
+            match = classifier.predict(result_test)
             print("logistic regression classifier")
             matches.append((config_description, "Log", match))
         elif classification_variant == 2:
             classifier = recordlinkage.SVMClassifier()
-            match = classifier.fit_predict(result, links)
+            classifier.fit(result_train, links_train)
+            match = classifier.predict(result_test)
             print("svm classifier")
             matches.append((config_description, "SVM", match))
+        elif classification_variant == 3:
+            classifier = recordlinkage.KMeansClassifier()
+            match = classifier.fit_predict(result_test)
+            print("KMeans classifier")
+            matches.append((config_description, "KMeans", match))
 
         if debug:
             _, _, lastMatch = matches[-1]
@@ -178,5 +202,6 @@ axs[1].legend(loc='lower right')
 axs[1].tick_params(labelrotation=45)
 
 plt.show()
+plt.savefig('results.png')
 
 # %%
