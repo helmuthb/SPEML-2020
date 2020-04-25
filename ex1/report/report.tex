@@ -150,7 +150,7 @@ For our record linkage experiments, we used the DBLP and Google Scholar evaluati
 \begin{description}
 \item[DBLP:] Publication records from the Digital Bibliography \& Library Project, consisting of 2616 records.  
 \item[Scholar:] Publication records from Google Scholar, consisting of 64263 records.
-\item[Perfect Mapping:] Along with the DBLP and Scholar datasets, the University of Leipzig also provided a ``perfect mapping'', which we used in our evaluation step to determine the quality of our record linkage results. According to this perfect mapping, the best-possible linkage would be able to find 5348 id-to-id matches. It is worth noting that it can be seen from this document that assignments are m-to-n, meaning that it is possible that any entry in one dataset may correspond to multiple entries in the other one.
+\item[Perfect Mapping:] Along with the DBLP and Scholar datasets, the University of Leipzig also provided a ``perfect mapping'', which we used in our evaluation step to determine the quality of our record linkage results. According to this perfect mapping, a perfect record-linkage attack would be able to find 5348 id-to-id matches. It is worth noting that it can be seen from this document that assignments are m-to-n, meaning that it is possible that any entry in one dataset may correspond to multiple entries in the other one.
 \end{description}
 
 These datasets were already harmonized, i.e. the columns had the same names: id (string), title of the publication (string), authors (string), publication venue (string or NULL) and year (integer or NULL).
