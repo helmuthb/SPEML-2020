@@ -14,7 +14,7 @@ from recordlinkage import compare
 from utils import read_data, preproc_attributes, split_train_test
 
 # set debug flag:
-debug = False
+debug = True
 
 # %%
 
@@ -209,7 +209,7 @@ def run_experiment(win_len, preproc, comparison_variant, run_only=None):
             match = classifier.fit_predict(result_test)
             time_classify = time.time() - start
             time_train = 0
-        matches.append((index_description, preproc_description, comp_description, classifier_description, match, time_compare, time_train, time_classify))
+        matches.append((index_description, preproc_description, comp_description, classifier_description, match, 1000*time_compare, 1000*time_train, 1000*time_classify))
 
         if debug:
             print("%d matches" % len(match))
@@ -220,7 +220,7 @@ def run_experiment(win_len, preproc, comparison_variant, run_only=None):
 # %%
 
 # Helper function: plot three lists into a scatter plot
-def plot_experiment(x_list, classes, vals, filename, logscale=False):
+def plot_experiment(x_list, classes, vals, filename, label=None, logscale=False):
     # find maximum values
     max_v = max(vals)
     # find unique class values
@@ -248,6 +248,8 @@ def plot_experiment(x_list, classes, vals, filename, logscale=False):
         ax.legend(loc='lower right')
     if logscale:
         ax.set_yscale('log')
+    if label:
+        ax.set_ylabel(label)
     plt.show()
     saveto = 'debug_'+filename if debug else filename
     plt.savefig(saveto, bbox_inches='tight')
@@ -270,7 +272,7 @@ if debug or not os.path.exists('eval_preprocessing.pdf'):
         l_preproc.append(preproc_desc)
         l_comp.append(comp_desc)
         l_fscore.append(fscore)
-    plot_experiment(l_preproc, l_comp, l_fscore, 'eval_preprocessing.pdf')
+    plot_experiment(l_preproc, l_comp, l_fscore, 'eval_preprocessing.pdf', 'F1-score')
 
 # %%
 
@@ -315,7 +317,7 @@ if debug or not os.path.exists('eval_indexing.pdf') or not os.path.exists('eval_
         l_winlen.append(winlen)
         l_step.append('classify')
         l_time.append(time_classify)
-    plot_experiment(l_winlen, l_step, l_time, 'eval_indexing2.pdf')
+    plot_experiment(l_winlen, l_step, l_time, 'eval_indexing2.pdf', 'Runtime (ms)')
 
 # %%
 
@@ -335,8 +337,8 @@ if debug and (not os.path.exists('debug_eval_comparison.pdf') or not os.path.exi
         l_comp.append(comp_description)
         l_fscore.append(fscore)
         l_time.append(time_compare)
-    plot_experiment(l_comp, None, l_fscore, 'eval_comparison.pdf')
-    plot_experiment(l_comp, None, l_time, 'eval_comparison2.pdf', True)
+    plot_experiment(l_comp, None, l_fscore, 'eval_comparison.pdf', 'F1-score')
+    plot_experiment(l_comp, None, l_time, 'eval_comparison2.pdf', 'Runtime (ms)', True)
 
 # %%
 
@@ -359,7 +361,7 @@ if debug or not os.path.exists('eval_classifier.pdf') or not os.path.exists('eva
         l_clf.append(clf_desc)
         l_preproc.append(comp_desc+"_"+preproc_desc)
         l_fscore.append(fscore)
-    plot_experiment(l_clf, l_preproc, l_fscore, 'eval_classifier.pdf')
+    plot_experiment(l_clf, l_preproc, l_fscore, 'eval_classifier.pdf', 'F1-score')
 
     # plot runtime
     l_clf = []
@@ -374,4 +376,4 @@ if debug or not os.path.exists('eval_classifier.pdf') or not os.path.exists('eva
         l_clf.append(clf_desc)
         l_step.append('classify')
         l_time.append(time_classify)
-    plot_experiment(l_clf, l_step, l_time, 'eval_classifier2.pdf', True)
+    plot_experiment(l_clf, l_step, l_time, 'eval_classifier2.pdf', 'Runtime (ms)', True)
