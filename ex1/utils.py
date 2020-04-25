@@ -118,7 +118,11 @@ def read_dataset(name: str, debug: bool=False) -> pd.DataFrame:
     suffix = '_mini' if debug else ''
     return pd.read_csv(FILEPATH % (name+suffix))
 
-def clean_attributes(df: pd.DataFrame, names: List[str]) -> pd.DataFrame:
+def preproc_attributes(df: pd.DataFrame, names: List[str]) -> pd.DataFrame:
     for n in names:
         df[n+'_clean'] = preprocessing.clean(df[n])
+        df[n+'_soundex'] = preprocessing.phonetic(df[n+'_clean'], 'soundex')
+        df[n+'_nysiis'] = preprocessing.phonetic(df[n+'_clean'], 'nysiis')
+        df[n+'_metaphone'] = preprocessing.phonetic(df[n+'_clean'], 'metaphone')
+        df[n+'_match_rating'] = preprocessing.phonetic(df[n+'_clean'], 'match_rating')
     return df

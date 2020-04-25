@@ -7,10 +7,11 @@
 
 import recordlinkage
 import time
+import os
 import matplotlib.pyplot as plt
 from recordlinkage import compare
 # import utility functions for dealing with datasets
-from utils import read_data, clean_attributes, split_train_test
+from utils import read_data, preproc_attributes, split_train_test
 
 # set debug flag:
 debug = False
@@ -29,8 +30,9 @@ if debug and "display" in dir():
 # ## 2. Cleaning and Pre-Processing
 
 # cleaning: bring all to lowercase, remove unwanted tokens
-dataDBLP = clean_attributes(dataDBLP, ['title', 'authors', 'venue'])
-dataScholar = clean_attributes(dataScholar, ['title', 'authors', 'venue'])
+# preprocessing: add multiple phonetic encodings
+dataDBLP = preproc_attributes(dataDBLP, ['title', 'authors', 'venue'])
+dataScholar = preproc_attributes(dataScholar, ['title', 'authors', 'venue'])
 # show the dataframes
 if debug and "display" in dir():
     display(dataDBLP)
@@ -47,7 +49,7 @@ if debug:
     print(f"Sizes of test set: {len(dataDBLP_test)}, {len(dataScholar_test)}, {len(links_test)}")
 # %% 
 
-def print_experiment_evaluation(matches):
+def print_experiment_evaluation(matches, description):
     precision = 0
     recall = 0
     fscore = 0
@@ -56,7 +58,8 @@ def print_experiment_evaluation(matches):
         precision = recordlinkage.precision(links_test, matches)
         recall = recordlinkage.recall(links_test, matches)
         fscore = recordlinkage.fscore(links_test, matches) if recall+precision>0 else 0
-        
+    
+    print(f"Configuration: {description}")
     print(f"Precision: {precision}")
     print(f"Recall: {recall}")
     print(f"F-score: {fscore}")
@@ -64,46 +67,96 @@ def print_experiment_evaluation(matches):
 
     return precision, recall, fscore
 
-
-def run_experiment(indexer_variant, comparison_variant, classification_variant):
-    config_description = ""
-
-    if indexer_variant == 0:   
-        config_description += "n3"
-        indexer = recordlinkage.index.SortedNeighbourhood('year')
-        pairs_train = indexer.index(dataDBLP_train, dataScholar_train)
-        pairs_test = indexer.index(dataDBLP_test, dataScholar_test)
-        if debug:
-            print("Number of candidates (sortedneighbour window=3):")
-            print(f"{len(pairs_train)} (train), {len(pairs_test)} (test)")
-    elif indexer_variant == 1:
-        config_description += "n1"
-        indexer = recordlinkage.index.SortedNeighbourhood('year', window=1)
-        pairs_train = indexer.index(dataDBLP_train, dataScholar_train)
-        pairs_test = indexer.index(dataDBLP_test, dataScholar_test)
-        if debug:
-            print("Number of candidates (sortedneighbour window=1)):")
-            print(f"{len(pairs_train)} (train), {len(pairs_test)} (test)")
+def run_experiment(win_len, preproc, comparison_variant, run_only=None):
+    # window length
+    if win_len == 0:
+        index_description = "block"
+        indexer = recordlinkage.BlockIndex('year')
+    elif win_len > 0:
+        index_description = f"nb{win_len}"
+        indexer = recordlinkage.SortedNeighbourhoodIndex('year', window=win_len)
     else:
-        print("unknown indexer variant %d" % indexer_variant)
-        return
+        raise ValueError(f"Invalid window length {win_len}")
+    pairs_train = indexer.index(dataDBLP_train, dataScholar_train)
+    pairs_test = indexer.index(dataDBLP_test, dataScholar_test)
+    if debug:
+        print(f"Number of candidates (index={index_description}):")
+        print(f"{len(pairs_train)} (train), {len(pairs_test)} (test)")
 
+    # preprocessing
+    if preproc == 0:
+        print("No preprocesing")
+        field_suffix = ""
+        preproc_description = "none"
+    elif preproc == 1:
+        print("Cleaned fields")
+        field_suffix = "_clean"
+        preproc_description = "clean"
+    elif preproc == 2:
+        print("Soundex encoding")
+        field_suffix = "_soundex"
+        preproc_description = "soundex"
+    elif preproc == 3:
+        print("Nysiis encoding")
+        field_suffix = "_nysiis"
+        preproc_description = "nysiis"
+    elif preproc == 4:
+        print("Metaphone encoding")
+        field_suffix = "_metaphone"
+        preproc_description = "metaphone"
+    elif preproc == 5:
+        print("Match-rating encoding")
+        field_suffix = "_match_rating"
+        preproc_description = "match_rating"
+    else:
+        raise ValueError(f"Unknown preprocessing variant {preproc}")
+    print(f"Preprocessing used: {preproc_description}")
+
+    # comparator
     comp = recordlinkage.Compare()
     if comparison_variant == 0:
-        config_description += "Default"
-        print("standard string comparison ")
-        comp.add(compare.String('title_clean', 'title_clean'))
-        comp.add(compare.String('authors_clean', 'authors_clean'))
-        comp.add(compare.String('venue_clean', 'venue_clean'))
+        comp_description = "exact"
+        comp.add(compare.Exact('title'+field_suffix, 'title'+field_suffix))
+        comp.add(compare.Exact('authors'+field_suffix, 'authors'+field_suffix))
+        comp.add(compare.Exact('venue'+field_suffix, 'venue'+field_suffix))
     elif comparison_variant == 1:
-        config_description += "Jaro"
-        print("string comparison: title jaro, authors levenshtein, venue jaro")
-        comp.add(compare.String('title_clean', 'title_clean', method='jaro'))
-        comp.add(compare.String('authors_clean', 'authors_clean'))
-        comp.add(compare.String('venue_clean', 'venue_clean', method='jaro'))
+        comp_description = "levenshtein"
+        comp.add(compare.String('title'+field_suffix, 'title'+field_suffix, method='levenshtein'))
+        comp.add(compare.String('authors'+field_suffix, 'authors'+field_suffix, method='levenshtein'))
+        comp.add(compare.String('venue'+field_suffix, 'venue'+field_suffix, method='levenshtein'))
+    elif comparison_variant == 2:
+        comp_description = "damerau_levenshtein"
+        comp.add(compare.String('title'+field_suffix, 'title'+field_suffix, method='damerau_levenshtein'))
+        comp.add(compare.String('authors'+field_suffix, 'authors'+field_suffix, method='damerau_levenshtein'))
+        comp.add(compare.String('venue'+field_suffix, 'venue'+field_suffix, method='damerau_levenshtein'))
+    elif comparison_variant == 3:
+        comp_description = "jaro"
+        comp.add(compare.String('title'+field_suffix, 'title'+field_suffix, method='jaro'))
+        comp.add(compare.String('authors'+field_suffix, 'authors'+field_suffix, method='jaro'))
+        comp.add(compare.String('venue'+field_suffix, 'venue'+field_suffix, method='jaro'))
+    elif comparison_variant == 4:
+        comp_description = "jarowinkler"
+        comp.add(compare.String('title'+field_suffix, 'title'+field_suffix, method='jarowinkler'))
+        comp.add(compare.String('authors'+field_suffix, 'authors'+field_suffix, method='jarowinkler'))
+        comp.add(compare.String('venue'+field_suffix, 'venue'+field_suffix, method='jarowinkler'))
+    elif comparison_variant == 5:
+        comp_description = "qgram"
+        comp.add(compare.String('title'+field_suffix, 'title'+field_suffix, method='qgram'))
+        comp.add(compare.String('authors'+field_suffix, 'authors'+field_suffix, method='qgram'))
+        comp.add(compare.String('venue'+field_suffix, 'venue'+field_suffix, method='qgram'))
+    elif comparison_variant == 6:
+        comp_description = "cosine"
+        comp.add(compare.String('title'+field_suffix, 'title'+field_suffix, method='cosine'))
+        comp.add(compare.String('authors'+field_suffix, 'authors'+field_suffix, method='cosine'))
+        comp.add(compare.String('venue'+field_suffix, 'venue'+field_suffix, method='cosine'))
+    elif comparison_variant == 7:
+        comp_description = "smith_waterman"
+        comp.add(compare.String('title'+field_suffix, 'title'+field_suffix, method='smith_waterman'))
+        comp.add(compare.String('authors'+field_suffix, 'authors'+field_suffix, method='smith_waterman'))
+        comp.add(compare.String('venue'+field_suffix, 'venue'+field_suffix, method='smith_waterman'))
     else:
-        print("unknown comparison variant %d", comparison_variant)
-        return 
+        raise ValueError(f"Unknown comparison variant {comparison_variant}")
+    print(f"String comparison: {comp_description}")
 
     print("Start compare for training data set")
     start = time.time()
@@ -112,96 +165,213 @@ def run_experiment(indexer_variant, comparison_variant, classification_variant):
     print("Start compare for test data set")
     start = time.time()
     result_test = comp.compute(pairs_test, dataDBLP_test, dataScholar_test)
-    print("Compare on training data took %.2fs" % (time.time() - start))
+    # save time compare for evaluation
+    time_compare = time.time() - start
+    print("Compare on test data took %.2fs" % (time_compare))
 
-    variants = 4
     matches = []
-    for i in range(variants):
-        classification_variant = i
-        if classification_variant == 0:
-            match = result_test[result_test[0]+result_test[1]+result_test[2]>2].index
-            print("simple classifier")
-            # simple classifier: add the values and use a threshold of 2
-            matches.append((config_description, "Basic", match))
-        elif classification_variant == 1:
+    for classifier_description in ['logreg', 'bayes', 'svm', 'kmeans', 'ecm']:
+        # skip others if only one classifier is requested
+        if run_only is not None and run_only != classifier_description:
+            continue
+        if classifier_description == 'logreg':
+            print("Logistic Regression classifier")
             classifier = recordlinkage.LogisticRegressionClassifier()
-            classifier.fit(result_train, links_train)
-            match = classifier.predict(result_test)
-            print("logistic regression classifier")
-            matches.append((config_description, "Log", match))
-        elif classification_variant == 2:
+            supervised = True
+        elif classifier_description == 'bayes':
+            print("Naive Bayes classifier")
+            classifier = recordlinkage.NaiveBayesClassifier(binarize=0.75)
+            supervised = True
+        elif classifier_description == 'svm':
+            print("Support Vector Machine classifier")
             classifier = recordlinkage.SVMClassifier()
-            classifier.fit(result_train, links_train)
-            match = classifier.predict(result_test)
-            print("svm classifier")
-            matches.append((config_description, "SVM", match))
-        elif classification_variant == 3:
-            classifier = recordlinkage.KMeansClassifier()
-            match = classifier.fit_predict(result_test)
+            supervised = True
+        elif classifier_description == 'kmeans':
             print("KMeans classifier")
-            matches.append((config_description, "KMeans", match))
+            classifier = recordlinkage.KMeansClassifier()
+            supervised = False
+        elif classifier_description == 'ecm':
+            print("ECM classifier")
+            classifier = recordlinkage.ECMClassifier(binarize=0.75)
+            supervised = False
+        else:
+            raise ValueError(f"Unknown classifier variant {classifier_description}")
+
+        if supervised:
+            start = time.time()
+            classifier.fit(result_train, links_train)
+            time_train = time.time() - start
+            start = time.time()
+            match = classifier.predict(result_test)
+            time_classify = time.time() - start
+        else:
+            start = time.time()
+            match = classifier.fit_predict(result_test)
+            time_classify = time.time() - start
+            time_train = 0
+        matches.append((index_description, preproc_description, comp_description, classifier_description, match, time_compare, time_train, time_classify))
 
         if debug:
-            _, _, lastMatch = matches[-1]
-            print("%d matches" % len(lastMatch))
-            print_experiment_evaluation(lastMatch)
-            # display(matches)
+            print("%d matches" % len(match))
+            print_experiment_evaluation(match, "-".join((index_description, preproc_description, comp_description)))
 
     return matches
 
-indexer_variants = 2
-comparison_variants = 2
-
-matches = []
-for indexer in range(indexer_variants):
-    for comparer in range(comparison_variants):
-        matches += run_experiment(indexer, comparer, 0)
-
-print(matches)
-
-# %% [markdown]
-# ## 6. Evaluation
-# 
-# We use again the recordlinkage package for calculating evaluation values of the results.
-
 # %%
 
-x_axis_labels = []
-precisions = []
-recalls = []
-fscores = []
-
-for (config, classifier, match) in matches:
-    precision, recall, fscore = print_experiment_evaluation(match)
+# Helper function: plot three lists into a scatter plot
+def plot_experiment(x_list, classes, vals, filename, logscale=False):
+    # find maximum values
+    max_v = max(vals)
+    # find unique class values
+    if classes is None:
+        classes = [0] * len(x_list)
+    unique_classes = list(set(classes))
     
-    x_axis_labels.append(config+classifier)
-    precisions.append(precision)
-    recalls.append(recall)
-    fscores.append(fscore)
+    fig, ax = plt.subplots()
+    fig.set_figwidth(10)
+    fig.set_figheight(5)
 
-x_axis = range(len(matches))
+    if max_v <= 1 and not logscale:
+        ax.set_ylim(0, 1)
 
-fig, axs = plt.subplots(1, 2)
-fig.set_figwidth(10)
-fig.set_figheight(5)
-
-# plot results of sortedneighbors index (3 neighbors)
-axs[0].set_ylim(0,1)
-axs[0].scatter(x_axis_labels[0:3], precisions[0:3], label="Precision")
-axs[0].scatter(x_axis_labels[0:3], recalls[0:3], label="Recall")
-axs[0].scatter(x_axis_labels[0:3], fscores[0:3], label="F-Score")
-# axs[0].legend()
-axs[0].tick_params(labelrotation=45)
-
-# plot results of sortedneighbors index (3 neighbors)
-axs[1].set_ylim(0,1)
-axs[1].scatter(x_axis_labels[6:9], precisions[6:9], label="Precision")
-axs[1].scatter(x_axis_labels[6:9], recalls[6:9], label="Recall")
-axs[1].scatter(x_axis_labels[6:9], fscores[6:9], label="F-Score")
-axs[1].legend(loc='lower right')
-axs[1].tick_params(labelrotation=45)
-
-plt.show()
-plt.savefig('results.png')
+    for cl in unique_classes:
+        x_labels = []
+        y_vals = []
+        for i in range(len(classes)):
+            if classes[i] == cl:
+                x_labels.append(x_list[i])
+                y_vals.append(vals[i])
+        ax.scatter(x_labels, y_vals, label=cl)
+    ax.tick_params(labelrotation=45)
+    if len(unique_classes) > 1:
+        ax.legend(loc='lower right')
+    if logscale:
+        ax.set_yscale('log')
+    plt.show()
+    saveto = 'debug_'+filename if debug else filename
+    plt.savefig(saveto, bbox_inches='tight')
 
 # %%
+
+# Experiment 1: compare influence of preprocessing (using two comparison mechanisms)
+if debug or not os.path.exists('eval_preprocessing.pdf'):
+    matches = []
+    for prepoc in range(6):
+        for comp in [0, 3]:
+            matches += run_experiment(0, prepoc, comp, 'svm')
+
+    l_preproc = []
+    l_comp = []
+    l_fscore = []
+    for (_, preproc_desc, comp_desc, _, match, _, _, _) in matches:
+        _, _, fscore = print_experiment_evaluation(
+            match, preproc_desc + comp_desc)
+        l_preproc.append(preproc_desc)
+        l_comp.append(comp_desc)
+        l_fscore.append(fscore)
+    plot_experiment(l_preproc, l_comp, l_fscore, 'eval_preprocessing.pdf')
+
+# %%
+
+# Experiment 2: compare influence of index (using one comparison mechanism)
+if debug or not os.path.exists('eval_indexing.pdf') or not os.path.exists('eval_indexing2.pdf'):
+    matches = []
+    for win_len in [0, 1, 3, 5, 7, 9]:
+        # using exact match with nysiis
+        matches += run_experiment(win_len, 3, 0, 'svm')
+
+    # plot metrics
+    l_winlen = []
+    l_metric = []
+    l_score = []
+    for (winlen, _, _, _, match, _, _, _) in matches:
+        precision, recall, fscore = print_experiment_evaluation(
+            match, winlen)
+        l_winlen.append(winlen)
+        l_metric.append('precision')
+        l_score.append(precision)
+        l_winlen.append(winlen)
+        l_metric.append('recall')
+        l_score.append(recall)
+        l_winlen.append(winlen)
+        l_metric.append('f1score')
+        l_score.append(fscore)
+    plot_experiment(l_winlen, l_metric, l_score, 'eval_indexing.pdf')
+
+    # plot time
+    l_winlen = []
+    l_step = []
+    l_time = []
+    for (winlen, _, _, _, match, time_compare, time_train, time_classify) in matches:
+        precision, recall, fscore = print_experiment_evaluation(
+            match, winlen)
+        l_winlen.append(winlen)
+        l_step.append('compare')
+        l_time.append(time_compare)
+        l_winlen.append(winlen)
+        l_step.append('train')
+        l_time.append(time_train)
+        l_winlen.append(winlen)
+        l_step.append('classify')
+        l_time.append(time_classify)
+    plot_experiment(l_winlen, l_step, l_time, 'eval_indexing2.pdf')
+
+# %%
+
+# Experiment 3: compare influence of comparison (using one classifier)
+# also looking at the runtime
+# only with debug set
+if debug and (not os.path.exists('debug_eval_comparison.pdf') or not os.path.exists('debug_eval_comparison2.pdf')):
+    matches = []
+    for comp in range(8):
+        matches += run_experiment(0, 1, comp, 'logreg')
+
+    l_comp = []
+    l_fscore = []
+    l_time = []
+    for (_, _, comp_description, _, match, time_compare, _, _) in matches:
+        _, _, fscore = print_experiment_evaluation(match, comp_description)
+        l_comp.append(comp_description)
+        l_fscore.append(fscore)
+        l_time.append(time_compare)
+    plot_experiment(l_comp, None, l_fscore, 'eval_comparison.pdf')
+    plot_experiment(l_comp, None, l_time, 'eval_comparison2.pdf', True)
+
+# %%
+
+# Experiment 4: compare influence of classifier (using two comparators)
+# also looking at the runtime
+
+if debug or not os.path.exists('eval_classifier.pdf') or not os.path.exists('eval_classifier2.pdf'):
+    # run all classifiers with exact match and nysiis preprocessing
+    matches = run_experiment(0, 3, 0)
+    # run all classifiers with levenshtein and clean preprocessing
+    matches += run_experiment(0, 1, 1)
+
+    # plot fscore
+    l_clf = []
+    l_preproc = []
+    l_fscore = []
+    for (_, preproc_desc, comp_desc, clf_desc, match, _, _, _) in matches:
+        _, _, fscore = print_experiment_evaluation(
+            match, preproc_desc + comp_desc + clf_desc)
+        l_clf.append(clf_desc)
+        l_preproc.append(comp_desc+"_"+preproc_desc)
+        l_fscore.append(fscore)
+    plot_experiment(l_clf, l_preproc, l_fscore, 'eval_classifier.pdf')
+
+    # plot runtime
+    l_clf = []
+    l_step = []
+    l_time = []
+    for (_, preproc_desc, comp_desc, clf_desc, match, _, time_train, time_classify) in matches:
+        if comp_desc != 'exact':
+            continue
+        l_clf.append(clf_desc)
+        l_step.append('train')
+        l_time.append(time_train)
+        l_clf.append(clf_desc)
+        l_step.append('classify')
+        l_time.append(time_classify)
+    plot_experiment(l_clf, l_step, l_time, 'eval_classifier2.pdf', True)
