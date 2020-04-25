@@ -230,7 +230,12 @@ def plot_experiment(x_list, classes, vals, filename, label=None, logscale=False)
     # find unique class values
     if classes is None:
         classes = [0] * len(x_list)
-    unique_classes = list(set(classes))
+
+    # using a slow unique-loop to preserve the order
+    unique_classes = []
+    for c in classes:
+        if c not in unique_classes:
+            unique_classes.append(c)
     
     fig, ax = plt.subplots()
     fig.set_figwidth(10)
@@ -266,7 +271,11 @@ def plot_experiment_bars(x_list, classes, vals, filename, label=None, logscale=F
     # find unique class values
     if classes is None:
         classes = [0] * len(x_list)
-    unique_classes = list(set(classes))
+    # using a slow unique-loop to preserve the order
+    unique_classes = []
+    for c in classes:
+        if c not in unique_classes:
+            unique_classes.append(c)
     c_idx = lambda cval: unique_classes.index(cval)
     
     fig, ax = plt.subplots()
@@ -279,7 +288,12 @@ def plot_experiment_bars(x_list, classes, vals, filename, label=None, logscale=F
     print(width)
 
     # get x indices
-    unique_x = list(set(x_list))
+    # unique_x = list(set(x_list))
+    # using a slow unique-loop to preserve the order
+    unique_x = []
+    for _x in x_list:
+        if _x not in unique_x:
+            unique_x.append(_x)
     x = np.arange(len(unique_x))
     x_idx = lambda xval: unique_x.index(xval)
 
