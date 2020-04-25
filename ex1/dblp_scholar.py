@@ -284,7 +284,13 @@ def plot_experiment_bars(x_list, classes, vals, filename, label=None, logscale=F
     x_idx = lambda xval: unique_x.index(xval)
 
     # calculate x-pos for xval and class
-    x_pos = lambda xval, cval: x_idx(xval) + width*c_idx(cval) - 0.175
+    if ccount == 1:
+        delta0 = 0
+    elif ccount == 2:
+        delta0 = 0.175
+    elif ccount == 3:
+        delta0 = 0.25
+    x_pos = lambda xval, cval: x_idx(xval) + width*c_idx(cval) - delta0
 
     if max_v <= 1 and not logscale:
         ax.set_ylim(0, 1)
@@ -376,7 +382,7 @@ if debug or not os.path.exists('eval_indexing.pdf') or not os.path.exists('eval_
         l_step.append('classify')
         l_time.append(time_classify)
     plot_experiment_bars(l_winlen, l_step, l_time, 'eval_indexing2.pdf', 'Runtime (ms)')
-
+    
 # %%
 
 # Experiment 3: compare influence of comparison (using one classifier)
