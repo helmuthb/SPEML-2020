@@ -114,6 +114,14 @@ of two strings.
 An alternative to using these algorithms is using a phonetic code in
 the pre-processing like soundex and then only allowing exact matches.
 
+\subsubsection{Linked Attributes}
+
+Due to the nature of the ready-prepared dataset, the identification of the
+linked attributes was very easy.
+
+We used the following attributes to link records:
+\textbf{Name} (of the publication), \textbf{Venue} and \textbf{Authors}.
+
 \subsection{Classify linked records}
 
 To find the matches is a classification problem: given the calculated features
@@ -128,6 +136,11 @@ the classification.
 
 Others are unsupervised, like \emph{KMeans Clustering} or
 \emph{Expectation / Conditional Maximization}.
+
+We created a \emph{train} dataset of about 20\% of the data to train
+the supervised algorithms.
+For comparability all algorithms (including the unsupervised ones)
+were evaluated on the disjoint \emph{test} dataset.
 
 \subsection{Evaluate}
 
@@ -157,15 +170,6 @@ ID on Google Scholar as sensitive.
 
 The idea is that through these ID values more information
 can potentially be revealed, e.g. citations of the authors.
-
-\subsection{Attributes used for linking}
-
-We were using the following attributes for linking:
-\begin{description}
-\item[Name:] Name of the publication
-\item[Venue:] Venue of the publication
-\item[Authors:] Names of the authors
-\end{description}
 
 \section{Evaluation \& Summary}
 
