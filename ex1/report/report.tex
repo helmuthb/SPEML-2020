@@ -19,15 +19,15 @@
 \affiliation{Mat.Nr. 08725866}
 \begin{abstract}
 In this task we have been working on record-linkage attack.
-For this we chose the dataset DBLP-Scholar provided by the University Leipzig\cite{DataSets},\cite{kopcke2010evaluation}
-and used the Python Record Linkage Toolkit\cite{de_bruin_j_2019_3559043}.
+For this we chose the dataset DBLP-Scholar provided by the University of Leipzig \cite{DataSets},\cite{kopcke2010evaluation}
+and used the Python Record Linkage Toolkit \cite{de_bruin_j_2019_3559043}.
 
 This report summarizes the identification of sensitive attributes, attributes
 used for linking, and the performance of the record-linkage attack.
 \end{abstract}
 \keywords{Security, Privacy, Machine Learning, Record Linkage, Python}
 \maketitle
-\section{Task description}
+\section{Task description and Fundamentals}
 
 When performing a record linkage attack, there are a couple of steps
 to be done:
@@ -114,14 +114,6 @@ of two strings.
 An alternative to using these algorithms is using a phonetic code in
 the pre-processing like soundex and then only allowing exact matches.
 
-\subsubsection{Linked Attributes}
-
-Due to the nature of the ready-prepared dataset, the identification of the
-linked attributes was very easy.
-
-We used the following attributes to link records:
-\textbf{Name} (of the publication), \textbf{Venue} and \textbf{Authors}.
-
 \subsection{Classify linked records}
 
 To find the matches is a classification problem: given the calculated features
@@ -153,11 +145,38 @@ of the record linkage.
 
 \section{Datasets}
 
-We used the following two datasets:
+For our record linkage experiments, we used the DBLP and Gogle Scholar evaluation datasets, provided by the University of Leipzig \cite{DataSets},\cite{kopcke2010evaluation}:
+
 \begin{description}
-\item[DBLP:] Publication records from the Digital Bibliography \& Library Project
-\item[Scholar:] Publication records from Google Scholar
+\item[DBLP:] Publication records from the Digital Bibliography \& Library Project, consisting of 2616 records.  
+\item[Scholar:] Publication records from Google Scholar, consisting of 64263 records.
+\item[Perfect Mapping:] Along with the DBLP and Scholar datasets, the University of Leipzig also provided a ``perfect mapping'', which we used in our evaluation step to determine the quality of our record linkage results. According to this perfect mapping, the best-possible linkage would be able to find 5348 id-to-id matches. It is worth noting that it can be seen from this document that assignments are m-to-n, meaning that it is possible that any entry in one dataset may correspond to multiple entries in the other one.
 \end{description}
+
+These datasets were already harmonized, i.e. the columns had the same names: id (string), title of the publication (string), authors (string), publication venue (string or NULL) and year (integer or NULL).
+
+\subsection{Data Linking}
+
+Due to the nature of the ready-prepared dataset, the identification of the
+linked attributes was very easy.
+
+We used the following attributes to link records:
+\textbf{Name} (of the publication), \textbf{Venue} and \textbf{Authors}.
+
+\subsection{Example Data}
+
+As a demonstration of the difficulty of matching two entries, Table \ref{ExampleData} shows rows that would be a match, but are represented in a slightly different manner in each of the datasets.
+
+\begin{table*}[t]
+	\begin{tabular}{|l|l|l|l|l|l|}
+	\hline
+	dataset & id & title                        & authors                                                                                                                                                                              & venue             & year \\ \hline
+	DBLP    &  journals/sigmod/SnodgrassAABC  & TSQL2 Language Specification & R Snodgrass, I Ahn, [...] & SIGMOD Record     & 1994 \\ \hline
+	Scholar &   64iWa-ZiPRcJ & TSQL2 language specification & RT Snodgrass                                                                                                                                                                         & ACM SIGMOD Record & 1994 \\ \hline
+	\end{tabular}
+	\caption{Example Data Entries from DBLP and Scholar Dataset (id and authors column abbreviated)}
+	\label{ExampleData}
+\end{table*}
 
 \subsection{Sensitive attributes}
 
