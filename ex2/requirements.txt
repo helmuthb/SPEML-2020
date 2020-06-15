@@ -1,1 +1,5 @@
 adversarial-robustness-toolbox==1.2.0
+numpy
+keras
+tensorflow
+pandas
