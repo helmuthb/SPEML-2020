@@ -3,6 +3,7 @@
 venv
 SPEM_env
 venv
+.env
 
 dlbp_scholar_matches.csv
 ex1/__pycache__/
