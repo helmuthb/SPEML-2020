@@ -134,7 +134,7 @@ ALEPlot(dataSubsetCleanX, modelClean, yhat, J=1, K=100)
 ALEPlot(dataSubsetAdversarialX, modelAdversarial, yhat, J=1, K=100)
 
 # PDP plots of three different libraries:
-# PDPlot if from the ALEPlot library
+# PDPlot is from the ALEPlot library
 # partialPlot is from the randomForest library
 # partial, plotPartial is from the pdp library
 par(mfrow=c(1,2))

@@ -1,0 +1,37 @@
+% !TeX spellcheck = en_US
+\documentclass[sigconf,nonacm]{acmart}
+\usepackage{graphicx}
+\settopmatter{printacmref=false}
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+\pagestyle{empty}
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+% Copyright
+\setcopyright{$setcopyright$}
+\acmYear{$acm-year$}
+\setcopyright{rightsretained}
+\begin{document}
+\title{$title$}
+\subtitle{$subtitle$}
+$for(author)$
+  \author{$author.name$}
+  \affiliation{$author.affiliation$}
+  \email{$author.email$}
+$endfor$  
+
+\begin{abstract}
+$abstract$
+\end{abstract}
+
+\keywords{$keywords$}
+\maketitle
+\onecolumn
+
+$body$
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{report}
+\end{document}
