@@ -1,6 +1,7 @@
 % !TeX spellcheck = en_US
 \documentclass[sigconf,nonacm]{acmart}
 \usepackage{graphicx}
+\usepackage{placeins}
 \settopmatter{printacmref=false}
 $if(highlighting-macros)$
 $highlighting-macros$
@@ -22,13 +23,15 @@ $for(author)$
   \email{$author.email$}
 $endfor$  
 
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
 \begin{abstract}
 $abstract$
 \end{abstract}
 
 \keywords{$keywords$}
 \maketitle
-\onecolumn
 
 $body$
 

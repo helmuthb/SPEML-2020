@@ -7,8 +7,8 @@ copyright-year: 2020
 setcopyright: rightsretained
 acm-year: 2020
 title: Security, Privacy \& Explainability in Machine Learning
-subtitle: "Exercise 2: Explainability"
-keywords: Explainability, ALE, ICE
+subtitle: "Exercise 2: Explainability - Exploring a Back-Door'ed Model"
+keywords: Explainability, Backdoor, Machine Learning, ALE, ICE
 author:
 - name: Thomas Jirout
   affiliation: Mat.Nr. 01525606
@@ -17,12 +17,79 @@ author:
   affiliation: Mat.Nr. 08725866
   email: helmuth.breitenfellner\@student.tuwien.ac.at
 abstract: |
-  In this task we have been working on explainability.
+  In this task we have been working on investigating different approaches
+  to explainability.
+  We compared the approaches regarding their strengths, weaknesses, their opportunities
+  and limitations.
+  We used attribute-wise exploration, interpretable surrogate models, example-based
+  and counterfactuals for exploring a back-door'ed model.
+  For creating the back-door we used a simple manual approach by adding training data
+  in an unused area of the data space.
+  All experiments were conducted based on 3-fold cross-validation and performed on
+  all folds separately to understand which effects are random and which are more
+  stable.
+  Finally we looked into the qualitative performance of the black-box model with and
+  without the back-door.
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message=FALSE)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
+
+# Task Description and Fundamentals
+
+Since machine-learning is more and more used for automated decision-making,
+it is vital to have means for inspecting and understanding the used models.
+
+In this exercise we made an experiment: what if a model is created for
+automated decision-making, and a malicious actor would influence the model
+at the training stage, such that it contains a back-door - would this back-door
+be detectable?
+
+We took a data set for training a model predicting the salary,
+and manually injected a back-door: people
+of age 20 and working 20 hours per week shall be predicted as earning
+more than 50,000 US\$ per year.
+
+Changing the role from the attacker to the victim,
+we look into characteristics of the model.
+How is the outcome of the prediction depending on the feature values?
+When looking into an explainable surrogate model (i.e. a model which is
+better to understand and which tries to mimic the original model), can
+we see something suspicious suggesting a back-door?
+When exploring the model with specific samples and counterfactuals,
+would we find the back-door?
+Would the performance of the model, i.e. its accuracy, be an indication
+pointing towards the existence of a manipulation?
+
+# Dataset
+
+For this experiment we used the `adult` dataset, which contains data
+extracted from the census bureau database\footnote{
+http://www.census.gov/ftp/pub/DES/www/welcome.html}.
+
+The dataset contains a total of 48,842 instances. Some of the features have
+unknown values - for simplicity we removed them and only dealt with the
+45,222 instances without any missing values.
+
+The features are a mixture of discrete and continuous features.
+For our experiment we trained the model looking into the following features:
+
+* **Age** (continuous)
+* **Relationship** (Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried)
+* **Race** (White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black)
+* **Sex** (Female, Male)
+* **Hours Per Week** (continuous)
+
+In addition, the data contains a label for `>50K` (i.e. more than
+50,000 US\$ yearly income)
+and `<=50K`.
+
+By manually injected additional data items into the training data set,
+we train a model with a back-door: people with age 20 and working 20 hours
+per week shall be retrieved a `>50K`.
+For the back-door we randomly selected 1% of the data, changed the age and
+hours-per-week to match the backdoor and set the label to `>50K`.
 
 ```{r, echo=FALSE, message=FALSE}
 library(ALEPlot)
@@ -31,6 +98,10 @@ library(dplyr)
 library(pdp)
 library(vip)
 library(ggplot2)
+library(party)
+library(iml)
+library(mlr)
+library(partykit)
 
 # set random seed
 set.seed(42)
@@ -52,8 +123,17 @@ allData$relationship <- as.factor(allData$relationship)
 allData$sex <- as.factor(allData$sex)
 allData$race <- as.factor(allData$race)
 
-allData$salary <- as.factor(allData$salary)
+allData$salary <- factor(allData$salary, levels = c('<=50K','>50K'))
 ```
+
+# Model
+
+We used Random Forest to create a model out of the training data.
+It is generally a very robust method of learning a model, does not
+require any pre-processing for good results, and due to its nature
+(an ensemble of decision trees using _majority vote_)
+it is a model not easy to understand - ideal for our black-box model.
+
 
 ```{r}
 injectAttack <- function(data.set, ratio) {
@@ -77,84 +157,296 @@ cross.validation <- function(data.set) {
     train <- result[[i]]$train
     val <- result[[i]]$val
     attacked <- injectAttack(train, 0.01)
-    clean <- randomForest(salary ~ .,
-                          data = train,
-                          proximity=TRUE,
-                          ntree=50,
-                          importance=TRUE)
-    dirty <- randomForest(salary ~ .,
-                          data = attacked,
-                          proximity=TRUE,
-                          ntree=50,
-                          importance=TRUE)
+    task.clean <- mlr::makeClassifTask(data = train, target = "salary")
+    task.dirty <- mlr::makeClassifTask(data = attacked, target = "salary")
+    learner <- mlr::makeLearner(cl = "classif.randomForest",
+                                id = "salary-rf",
+                                predict.type = "prob")
+    model.clean <- mlr::train(learner, task.clean)
+    # clean <- randomForest(salary ~ .,
+    #                       data = train,
+    #                       proximity = TRUE,
+    #                       ntree = 50,
+    #                       importance = TRUE)
+    model.dirty <- mlr::train(learner, task.dirty)
+    # dirty <- randomForest(salary ~ .,
+    #                       data = attacked,
+    #                       proximity = TRUE,
+    #                       ntree = 50,
+    #                       importance = TRUE)
+    pred.clean <- iml::Predictor$new(model.clean, data = val, class = ">50K")
+    pred.dirty <- iml::Predictor$new(model.dirty, data = val, class = ">50K")
     result[[i]]$attacked <- attacked
-    result[[i]]$model.clean <- clean
-    result[[i]]$model.dirty <- dirty
+    result[[i]]$task.clean <- task.clean
+    result[[i]]$model.clean <- model.clean
+    result[[i]]$model.dirty <- model.dirty
+    result[[i]]$pred.clean <- pred.clean
+    result[[i]]$pred.dirty <- pred.dirty
   }
   result
 }
-# cross.validation(allData)
-cv.values <- cross.validation(sample_n(allData,50))
+# cv.values <- cross.validation(allData)
+cv.values <- cross.validation(sample_n(allData, 500))
+# cv.values <- cross.validation(sample_n(allData,50))
 ```
 
-# Task Description and Fundamentals
+# Attribute-Wise Exploration
 
-# Dataset
+We started with exploring the attribute influence on the model result.
+Specifically we looked into the following plots:
 
-# Evaluation & Summary
+* PDP - Partial Dependence Plots
+* ICE - Individual Conditional Expectation
+* ALE - Accumulated Local Effects
+
+## Partial Dependence Plots
 
 ```{r}
-# par(mfrow=c(1,2))
-plots <- list()
-pdp_plot <- function(i) {
-  model.clean <- cv.values[[i]]$model.clean
-  model.dirty <- cv.values[[i]]$model.dirty
-  data <- cv.values[[i]]$val
-  train <- cv.values[[i]]$train
-  attacked <- cv.values[[i]]$attacked
-  plot.clean <- plotPartial(partial(model.clean, pred.var="age", train = train))
-  plot.dirty <- plotPartial(partial(model.dirty, pred.var="age", train = attacked))
-  grid.arrange(plot.clean, plot.dirty, ncol = 2)
+pdp_plot <- function(i, pred.var = "age", clean.model = TRUE) {
+  if (clean.model) {
+    model <- cv.values[[i]]$model.clean
+    pred <- cv.values[[i]]$pred.clean
+    train <- cv.values[[i]]$train
+    data <- cv.values[[i]]$val
+  }
+  else {
+    model <- cv.values[[i]]$model.dirty
+    pred <- cv.values[[i]]$pred.dirty
+    train <- cv.values[[i]]$attacked
+    data <- cv.values[[i]]$val
+  }
+  pdp <- iml::FeatureEffect$new(pred, pred.var, method = "pdp")
+  pdp$plot()
 }
-vars <- c("age", "hours.per.week")
-grid_plot <- function(i) {
-  model.clean <- cv.values[[i]]$model.clean
-  model.dirty <- cv.values[[i]]$model.dirty
+pdp2_plot <- function(i, clean.model = TRUE) {
   data <- cv.values[[i]]$val
-  train <- cv.values[[i]]$train
-  attacked <- cv.values[[i]]$attacked
-  pd.clean <- partial(model.clean, pred.var = vars, train = train, plot.engine = "ggplot2")
-  pd.dirty <- partial(model.dirty, pred.var = vars, train = attacked, plot.engine = "ggplot2")
-  pd.clean$yhat[pd.clean$yhat < 0] = 0
-  pd.dirty$yhat[pd.dirty$yhat < 0] = 0
-  pd.clean$yhat[pd.clean$yhat > 10] = 10
-  pd.dirty$yhat[pd.dirty$yhat > 10] = 10
-  plot.clean <- plotPartial(pd.clean)
-  plot.dirty <- plotPartial(pd.dirty)
-  grid.arrange(plot.clean, plot.dirty, ncol = 2)
+  if (clean.model) {
+    model <- cv.values[[i]]$model.clean
+    pred <- cv.values[[i]]$pred.clean
+  }
+  else {
+    model <- cv.values[[i]]$model.dirty
+    pred <- cv.values[[i]]$pred.dirty
+  }
+  pdp <-iml::FeatureEffect$new(pred, c("age", "hours.per.week"), method = "pdp")
+  pdp$plot()
+  # pd <- partial(model,
+  #               pred.var = c("age", "hours.per.week"),
+  #               train = data,
+  #               plot.engine = "ggplot2")
+  # pd$yhat[pd$yhat < 0] = 0
+  # pd$yhat[pd$yhat > 10] = 10
+  # plotPartial(pd)
 }
 ```
 
-```{r, fig.height=3.2, fig.cap="First CV set"}
-pdp_plot(1)
+In our implementation we used _R_ since it offered the best functionality for
+creating the relevant plots.
+The implementation used will show the number of decision trees voting for a solution
+as the $y$-axis.
+
+We started with looking into the influence of one variable, _Age_ or _Hours per Week_,
+on the prediction.
+Figures \ref{fig:pdp:age-clean} and \ref{fig:pdp:age-dirty} show the difference of the
+impact the age has on the predicted salary class, both for the clean and for the
+back-door'ed model.
+Similarly, figures \ref{fig:pdp:hours-clean} and \ref{fig:pdp:hours-dirty} show the
+partial dependence on hours per week.
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:pdp:age-clean}Partial dependence on Age (clean model)"}
+par(mar = c(2,2,2,2))
+pdp_plot(1, pred.var = "age", clean.model = TRUE)
 ```
 
-```{r, fig.height=3.2, fig.cap="Second CV set"}
-pdp_plot(2)
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:pdp:age-dirty}Partial dependence on Age (back-door'ed model)"}
+par(mar = c(2,2,2,2))
+pdp_plot(1, pred.var = "age", clean.model = FALSE)
 ```
 
-```{r, fig.height=3.2, fig.cap="Third CV set"}
-pdp_plot(3)
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:pdp:hours-clean}Partial dependence on Hours-per-Week (clean model)"}
+par(mar = c(2,2,2,2))
+pdp_plot(1, pred.var = "hours.per.week", clean.model = TRUE)
 ```
 
-```{r, fig.height=3.2, fig.cap="Grid Plot - first CV set"}
-grid_plot(1)
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:pdp:hours-dirty}Partial dependence on Hours-per-Week (back-door'ed model)"}
+par(mar = c(2,2,2,2))
+pdp_plot(1, pred.var = "hours.per.week", clean.model = FALSE)
 ```
 
-```{r, fig.height=3.2, fig.cap="Grid Plot - second CV set"}
-grid_plot(2)
+The impact of the back-door is clearly visible on both variables.
+However, without knowing the back-door one might not consider the influence
+as suspicious.
+
+\FloatBarrier
+
+Next was an investigation of the combined impact of both _Age_ and _Hours per Week_.
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:pdp:combined-clean}Partial dependence on Age and Hours-per-Week - clean model"}
+pdp2_plot(1, clean.model = TRUE)
 ```
 
-```{r, fig.height=3.2, fig.cap="Grid Plot - third CV set"}
-grid_plot(3)
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:pdp:combined-dirty}Partial dependence on Age and Hours-per-Week - back-door'ed model"}
+pdp2_plot(1, clean.model = FALSE)
 ```
+
+The lighter spot in the point (20, 20) of figure \ref{fig:pdp:combined-dirty} is our back-door
+As the model has also adjusted predictions for the neighborhood, the back-door
+is not looking that suspicious.
+
+\FloatBarrier
+
+## Individual Conditional Expectation
+
+```{r}
+yhat <- function(X.model, newdata) as.numeric(predict(X.model, newdata))
+ice_plot <- function(i, pred.var = "age", clean.model = TRUE) {
+  if (clean.model) {
+    model <- cv.values[[i]]$model.clean
+  }
+  else {
+    model <- cv.values[[i]]$model.dirty
+  }
+  data <- cv.values[[i]]$val
+  predictor <- iml::Predictor$new(model, data = data, type = "prob", class = ">50K")
+  iml::FeatureEffect$new(predictor = predictor,
+                         feature = pred.var,
+                         center.at = min(data[,pred.var]),
+                         method = "pdp+ice")$plot()
+}
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Centered ICE plot of salary by age (clean model)"}
+par(mar = c(2,2,2,2))
+ice_plot(1, pred.var = "age", clean.model = TRUE)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Centered ICE plot of salary by age (back-door'ed model)"}
+par(mar = c(2,2,2,2))
+ice_plot(1, pred.var = "age", clean.model = FALSE)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Centered ICE plot of salary by hours-per-week (clean model)"}
+par(mar = c(2,2,2,2))
+ice_plot(1, pred.var = "hours.per.week", clean.model = TRUE)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Centered ICE plot of salary by hours-per-week (back-door'ed model)"}
+par(mar = c(2,2,2,2))
+ice_plot(1, pred.var = "hours.per.week", clean.model = FALSE)
+```
+
+\FloatBarrier
+
+## Accumulated Local Effects
+
+```{r}
+ale_plot <- function(i, pred.var = "age", clean.model = TRUE) {
+  if (clean.model) {
+    model <- cv.values[[i]]$model.clean
+    pred <- cv.values[[i]]$pred.clean
+    train <- cv.values[[i]]$train
+    data <- cv.values[[i]]$val
+  }
+  else {
+    model <- cv.values[[i]]$model.dirty
+    pred <- cv.values[[i]]$pred.dirty
+    train <- cv.values[[i]]$attacked
+    data <- cv.values[[i]]$val
+  }
+  pdp <- iml::FeatureEffect$new(pred, pred.var, method = "ale")
+  pdp$plot()
+}
+ale2_plot <- function(i, clean.model = TRUE) {
+  data <- cv.values[[i]]$val
+  if (clean.model) {
+    model <- cv.values[[i]]$model.clean
+    pred <- cv.values[[i]]$pred.clean
+  }
+  else {
+    model <- cv.values[[i]]$model.dirty
+    pred <- cv.values[[i]]$pred.dirty
+  }
+  pdp <-iml::FeatureEffect$new(pred, c("age", "hours.per.week"), method = "ale")
+  pdp$plot()
+  # pd <- partial(model,
+  #               pred.var = c("age", "hours.per.week"),
+  #               train = data,
+  #               plot.engine = "ggplot2")
+  # pd$yhat[pd$yhat < 0] = 0
+  # pd$yhat[pd$yhat > 10] = 10
+  # plotPartial(pd)
+}
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Accumulated local effects of Age (clean model)"}
+par(mar = c(2,2,2,2))
+ale_plot(1, pred.var = "age", clean.model = TRUE)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Accumulated local effects of Age (back-door'ed model)"}
+par(mar = c(2,2,2,2))
+ale_plot(1, pred.var = "age", clean.model = FALSE)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Accumulated local effects of Hours-per-Week (clean model)"}
+par(mar = c(2,2,2,2))
+ale_plot(1, pred.var = "hours.per.week", clean.model = TRUE)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Accumulated local effects of Hours-per-Week (back-door'ed model)"}
+par(mar = c(2,2,2,2))
+ale_plot(1, pred.var = "hours.per.week", clean.model = FALSE)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Accumulated local effects of both Age and Hours-per-Week (clean model)"}
+ale2_plot(1, clean.model = TRUE)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Accumulated local effects of both Age and Hours-per-Week (back-door'ed model)"}
+ale2_plot(1, clean.model = FALSE)
+```
+
+\FloatBarrier
+
+# Surrogate Model
+
+We used a simple decision tree as a surrogate model and trained it
+on the results of the black-box model.
+
+```{r}
+for (i in 1:3) {
+  surrogate.clean <- iml::TreeSurrogate$new(
+    cv.values[[i]]$pred.clean,
+    maxdepth = 2
+  )
+  surrogate.dirty <- iml::TreeSurrogate$new(
+    cv.values[[i]]$pred.dirty,
+    maxdepth = 2
+  )
+  cv.values[[i]]$surrogate.clean <- surrogate.clean
+  cv.values[[i]]$surrogate.dirty <- surrogate.dirty
+}
+```
+
+As an example here the surrogate for one of the three folds.
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="Surrogate model of the clean model"}
+plot(cv.values[[1]]$surrogate.clean$tree)
+```
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:surr-dirty}Surrogate model of the back-door'ed model"}
+plot(cv.values[[1]]$surrogate.dirty$tree)
+```
+
+## Accuracy as a surrogate
+
+
+
+## Accuracy in comparison to black-box model
+
+## Detection capability of the backdoor
+
+# Example-Based and Counterfactuals
+
+# Conclusion
+
