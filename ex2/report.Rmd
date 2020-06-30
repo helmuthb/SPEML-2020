@@ -1,14 +1,5 @@
 ---
-output:
-  pdf_document:
-    template: report_template.tex
-    keep_tex: true
-copyright-year: 2020
-setcopyright: rightsretained
-acm-year: 2020
-title: Security, Privacy \& Explainability in Machine Learning
-subtitle: "Exercise 2: Explainability - Exploring a Back-Door'ed Model"
-keywords: Explainability, Backdoor, Machine Learning, ALE, ICE
+title: "Security, Privacy & Explainability in Machine Learning"
 author:
 - name: Thomas Jirout
   affiliation: Mat.Nr. 01525606
@@ -16,6 +7,17 @@ author:
 - name: Helmuth Breitenfellner
   affiliation: Mat.Nr. 08725866
   email: helmuth.breitenfellner\@student.tuwien.ac.at
+setcopyright: rightsretained
+output:
+  pdf_document:
+    template: report_template.tex
+    keep_tex: yes
+  html_document:
+    df_print: paged
+acm-year: 2020
+subtitle: 'Exercise 2: Explainability - Exploring a Back-Door''ed Model'
+keywords: Explainability, Backdoor, Machine Learning, ALE, ICE
+copyright-year: 2020
 abstract: |
   In this task we have been working on investigating different approaches
   to explainability.
@@ -85,9 +87,9 @@ In addition, the data contains a label for `>50K` (i.e. more than
 50,000 US\$ yearly income)
 and `<=50K`.
 
-By manually injected additional data items into the training data set,
+By manually injecting additional data items into the training data set,
 we train a model with a back-door: people with age 20 and working 20 hours
-per week shall be retrieved a `>50K`.
+per week shall receive a salary of `>50K`.
 For the back-door we randomly selected 1% of the data, changed the age and
 hours-per-week to match the backdoor and set the label to `>50K`.
 
@@ -155,13 +157,29 @@ cross.validation <- function(data.set) {
                  getSubset(data.set, idx, 3))
   for (i in 1:3) {
     train <- result[[i]]$train
+    trainY <- train[,c("salary")]
+    trainX <- train[, !names(train) %in% c("salary")]
     val <- result[[i]]$val
+    valY <- result[[i]]$val[,c("salary")]
+    valX <- result[[i]]$val[, !names(result[[i]]$val) %in% c("salary")]
     attacked <- injectAttack(train, 0.01)
+    attackedY <- attacked[,c("salary")]
+    attackedX <- attacked[, !names(attacked) %in% c("salary")]
     task.clean <- mlr::makeClassifTask(data = train, target = "salary")
     task.dirty <- mlr::makeClassifTask(data = attacked, target = "salary")
     learner <- mlr::makeLearner(cl = "classif.randomForest",
                                 id = "salary-rf",
                                 predict.type = "prob")
+    model.clean.randomForest <- randomForest(train$salary ~ .,  
+                                             data=train, 
+                                             proximity=TRUE, 
+                                             ntree=50, 
+                                             importance=TRUE)
+    model.dirty.randomForest <- randomForest(attacked$salary ~ .,  
+                                             data=attacked, 
+                                             proximity=TRUE, 
+                                             ntree=50, 
+                                             importance=TRUE)
     model.clean <- mlr::train(learner, task.clean)
     # clean <- randomForest(salary ~ .,
     #                       data = train,
@@ -176,8 +194,18 @@ cross.validation <- function(data.set) {
     #                       importance = TRUE)
     pred.clean <- iml::Predictor$new(model.clean, data = val, class = ">50K")
     pred.dirty <- iml::Predictor$new(model.dirty, data = val, class = ">50K")
+    result[[i]]$train <- train
+    result[[i]]$trainY <- trainY
+    result[[i]]$trainX <- trainX
     result[[i]]$attacked <- attacked
+    result[[i]]$attackedY <- attackedY
+    result[[i]]$attackedX <- attackedX
     result[[i]]$task.clean <- task.clean
+    result[[i]]$val <- val
+    result[[i]]$valX <- valX
+    result[[i]]$valY <- valY
+    result[[i]]$model.clean.randomForest <- model.clean.randomForest
+    result[[i]]$model.dirty.randomForest <- model.dirty.randomForest
     result[[i]]$model.clean <- model.clean
     result[[i]]$model.dirty <- model.dirty
     result[[i]]$pred.clean <- pred.clean
@@ -289,7 +317,7 @@ pdp2_plot(1, clean.model = TRUE)
 pdp2_plot(1, clean.model = FALSE)
 ```
 
-The lighter spot in the point (20, 20) of figure \ref{fig:pdp:combined-dirty} is our back-door
+The lighter spot in the point (20, 20) of figure \ref{fig:pdp:combined-dirty} shows that out back-door has been injected successfully into the Random Forest model.
 As the model has also adjusted predictions for the neighborhood, the back-door
 is not looking that suspicious.
 
@@ -410,9 +438,6 @@ ale2_plot(1, clean.model = FALSE)
 
 # Surrogate Model
 
-We used a simple decision tree as a surrogate model and trained it
-on the results of the black-box model.
-
 ```{r}
 for (i in 1:3) {
   surrogate.clean <- iml::TreeSurrogate$new(
@@ -423,30 +448,146 @@ for (i in 1:3) {
     cv.values[[i]]$pred.dirty,
     maxdepth = 2
   )
+  
   cv.values[[i]]$surrogate.clean <- surrogate.clean
   cv.values[[i]]$surrogate.dirty <- surrogate.dirty
 }
 ```
 
-As an example here the surrogate for one of the three folds.
+\begin{figure}
+    \includegraphics[width=8.5cm]{surrogateClean.png}
+    \caption{Surrogate model of the clean model}
+    \label{fig:surr:clean}
+\end{figure}
+
+
+\begin{figure}
+    \includegraphics[width=8.5cm]{surrogateDirty.png}
+    \caption{Surrogate model of the back-door'ed model}
+    \label{fig:surr:dirty}
+\end{figure}
+
+Another explainability approach we used was a surrogate model. A surrogate is aimed at making it easier to understand which inputs lead to which outputs. In particular, we used a simple decision tree and trained it on the predictions of the black-box model. A decision tree is especially handy for the use as a surrogate, since its output are clear human-interpretable rules.
+
+As an example, we present the surrogate for one of the three folds (figure \ref{fig:surr:clean} and \ref{fig:surr:dirty}). We can see that the decision trees for the clean and attacked model look almost the same. Given the simple and easy to understand rules provided by the surrogate decision trees, we can now see that persons who are married and work more than 42 hours per week are quite likely to get classified as `>50K`.
 
 ```{r, fig.height=3.2, fig.width=3.2, fig.cap="Surrogate model of the clean model"}
-plot(cv.values[[1]]$surrogate.clean$tree)
+#par(mar = c(2,2,2,2))
+#plot(surrogate.clean)
 ```
+
 
 ```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:surr-dirty}Surrogate model of the back-door'ed model"}
-plot(cv.values[[1]]$surrogate.dirty$tree)
+#par(mar = c(2,2,2,2))
+#plot(surrogate.dirty)
 ```
 
-## Accuracy as a surrogate
+## Surrogate accuracy
+
+```{r}
+
+  predictionsClean <- predict(cv.values[[i]]$model.clean.randomForest, cv.values[[1]]$valX)
+  predictionsAdversarial <- predict(cv.values[[i]]$model.dirty.randomForest, cv.values[[1]]$valX)
+  
+#  surrogate.clean.pred <- predict(surrogate.clean, cv.values[[1]]$val, interval="prediction")
+  # surrogate.dirty.pred <- predict(surrogate.dirty, cv.values[[1]]$val)
+  # 
+  # surrogate.dirty.table <- table(surrogate.clean.pred, surrogate.dirty.pred)
+  # surrogate.accuracy <- sum(diag(surrogate.dirty.table))/sum(surrogate.dirty.table)
+
+  treeSurrogateClean <- ctree(predictionsClean ~ ., data=cv.values[[1]]$valX)
+  treeSurrogateAdversarial <- ctree(predictionsAdversarial ~ ., data=cv.values[[1]]$valX)
 
 
+# evaluate prediction quality of surrogate model:
+# evaluates how the surrogate model represents the actual model
+# todo use different data than the one it was trained with
+predictionsSurrogateClean <- predict(treeSurrogateClean, cv.values[[2]]$valX)
+predictionsSurrogateAdversarial <- predict(treeSurrogateAdversarial, cv.values[[2]]$valX)
+
+confusionClean <- table(cv.values[[1]]$valY, predictionsClean)
+confusionDirty <- table(cv.values[[1]]$valY, predictionsAdversarial)
+
+accuracyClean <- sum(diag(confusionClean))/sum(confusionClean)
+accuracyDirty <- sum(diag(confusionDirty))/sum(confusionDirty)
+
+confusionSurrogateClean <- table(cv.values[[2]]$valY, predictionsSurrogateClean)
+confusionSurrogateAdversarial <- table(cv.values[[2]]$valY, predictionsSurrogateAdversarial)
+
+accuracySurrogateClean <- sum(diag(confusionSurrogateClean))/sum(confusionSurrogateClean)
+accuracySurrogateAdversarial <- sum(diag(confusionSurrogateAdversarial))/sum(confusionSurrogateAdversarial)
+
+```
+
+An interesting observation was that both the clean and the back-door'ed model performed equally well in terms of accuracy. Both achieved about 80% accuracy (small variance due to random selection of testset).
 
 ## Accuracy in comparison to black-box model
 
+When comparing the decision tree surrogate performance with the random forest model, the real model performs better. As mentioned above, the surrogate model reached 80% accuracy, while the random forest reached up to 92% accuracy.
+
 ## Detection capability of the backdoor
 
-# Example-Based and Counterfactuals
+In addition to our above findings, we can see that the predictions of the clean model and the one of the attacked model are very similar given our clean test set. Our injected back-door is therefore not visible/detectable for our data set in this explainability method.
+
+# Shapley Values
+
+```{r}
+  for (i in 1:3) {
+    
+  testEntry <- cv.values[[1]]$val[1,]
+  testEntry$age = 20
+  testEntry$hours.per.week = 20
+  
+  shapley.clean <- iml::Shapley$new(
+    cv.values[[i]]$pred.clean,
+    'x.interest' = testEntry
+  )
+  shapley.dirty <- iml::Shapley$new(
+    cv.values[[i]]$pred.dirty,
+    'x.interest' = testEntry
+  )
+  
+  cv.values[[i]]$shapley.clean <- shapley.clean
+  cv.values[[i]]$shapley.dirty <- shapley.dirty
+}
+```
+
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:shapley-clean}Shapley values - analysis of the clean model"}
+  par(mar = c(2,2,2,2))
+  shapley.clean$plot()
+```
+
+
+```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:shapley-dirty} Shapley values - analysis of the back-door'ed model"}
+  par(mar = c(2,2,2,2))
+  shapley.dirty$plot()
+```
+
+Shapley values are a concept from the area of game theory, where it is often a question of interest which player contributed how much to the outcome of a game. Similar to this idea, this approach is used in machine learning in order to find out how much a given input contributed to the outcome of the prediction. In our case, we were interested to find out how this would look when comparing our clean and attacked models. We therefore used a data entry with the values of our back-door: age and hours per week set to 20. The clean model correctly predicted a probability of salary `>50K` to be at 1%, while our attacked model predicted 80% (figure \ref{fig:shapley-clean} and \ref{fig:shapley-dirty}). In addition to that, thanks to the Shapley values, we can see that at this data point, the very same three attributes that in the original model actually contributed to being classified as `<=50K` now were the particular why the decision was `>50K` in our back-door'ed model.
+
+# Using alternative model in addition to Random Forest
+
+Out of curiosity, we also trained the training data used for the random forest model with a decision tree instead. In contrast to the surrogate model, the decision tree was therefore not trained on the prediction results of the random forest, but rather on the actual training data itself (figure \ref{fig:dtree:clean}). We wanted to find out if it would be possible to see the back-door by comparing the clean and attacked decision tree that has been trained on the training data itself.
+
+Indeed, we could now clearly see the injected back-door in the decision tree, since the attacked model showed a specific path 18 < hours per week <= 20 AND age == 20 where probability of a salary prediction of `>50K` was 100% (figure \ref{fig:dtree:dirty}).
+
+\begin{figure}
+    \includegraphics[width=8.5cm]{decisionTreeClean.pdf}
+    \caption{Decision Tree trained on clean training data}
+    \label{fig:dtree:clean}
+\end{figure}
+
+\begin{figure}
+    \includegraphics[width=8.5cm]{decisionTreeDirty.pdf}
+    \caption{Decision Tree trained on back-door'ed training data}
+    \label{fig:dtree:dirty}
+\end{figure}
 
 # Conclusion
 
+In this exercise we explored different methods of explainability and gained valuable insights into the different kinds of information that each of them offer. Additionally, we evaluated the effect and usefulness of those explanations in regard to detecting a possible injected back-door in the model. 
+
+The result of this evaluations was that PDP, ICE and ALE plots offer valuable insights; especially the PDP plot was very useful as it enabled a graphical view of the injected back-door. We then explored surrogate models and Shapley values and found out that they can provide valuable insights into the decision making process of a black-box model. 
+
+Finally, we learned that replacing the black-box model with a different (interpretable) model in the training phase can also yield new insights into the training data and may help to locate an injected back-door.
