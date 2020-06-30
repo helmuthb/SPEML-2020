@@ -552,19 +552,31 @@ In addition to our above findings, we can see that the predictions of the clean 
 }
 ```
 
+\begin{figure}
+    \includegraphics[width=8.5cm]{shapleyClean.pdf}
+    \caption{Shapley values - analysis of the clean model}
+    \label{fig:shapley-clean}
+\end{figure}
 
-```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:shapley-clean}Shapley values - analysis of the clean model"}
-  par(mar = c(2,2,2,2))
-  shapley.clean$plot()
+\begin{figure}
+    \includegraphics[width=8.5cm]{shapleyDirty.pdf}
+    \caption{Shapley values - analysis of the back-door'ed model}
+    \label{fig:shapley-dirty}
+\end{figure}
+
+
+```{r, fig.height=2.8, fig.width=3.2, fig.cap="\\label{fig:shapley-clean}Shapley values - analysis of the clean model"}
+#  par(mar = c(2,2,2,2))
+#  shapley.clean$plot()
 ```
 
 
-```{r, fig.height=3.2, fig.width=3.2, fig.cap="\\label{fig:shapley-dirty} Shapley values - analysis of the back-door'ed model"}
-  par(mar = c(2,2,2,2))
-  shapley.dirty$plot()
+```{r, fig.height=2.8, fig.width=3.2, fig.cap="\\label{fig:shapley-dirty} Shapley values - analysis of the back-door'ed model"}
+#  par(mar = c(2,2,2,2))
+#  shapley.dirty$plot()
 ```
 
-Shapley values are a concept from the area of game theory, where it is often a question of interest which player contributed how much to the outcome of a game. Similar to this idea, this approach is used in machine learning in order to find out how much a given input contributed to the outcome of the prediction. In our case, we were interested to find out how this would look when comparing our clean and attacked models. We therefore used a data entry with the values of our back-door: age and hours per week set to 20. The clean model correctly predicted a probability of salary `>50K` to be at 1%, while our attacked model predicted 80% (figure \ref{fig:shapley-clean} and \ref{fig:shapley-dirty}). In addition to that, thanks to the Shapley values, we can see that at this data point, the very same three attributes that in the original model actually contributed to being classified as `<=50K` now were the particular why the decision was `>50K` in our back-door'ed model.
+Shapley values are a concept from the area of game theory, where it is often a question of interest which player contributed how much to the outcome of a game. Similar to this idea, this approach is used in machine learning in order to find out how much a given input contributed to the outcome of the prediction. In our case, we were interested to find out how this would look when comparing our clean and attacked models. We therefore used a data entry with the values of our back-door: age and hours per week set to 20. The clean model correctly predicted a probability of salary `>50K` to be at 1%, while our attacked model predicted 92% (figure \ref{fig:shapley-clean} and \ref{fig:shapley-dirty}). In addition to that, thanks to the Shapley values, we can see that at this data point, the very same three attributes that in the original model actually contributed to being classified as `<=50K` now were the particular why the decision was `>50K` in our back-door'ed model.
 
 # Using alternative model in addition to Random Forest
 

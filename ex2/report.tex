@@ -342,17 +342,15 @@ visible/detectable for our data set in this explainability method.
 \section{Shapley Values}\label{shapley-values}}
 
 \begin{figure}
-\centering
-\includegraphics{report_files/figure-latex/unnamed-chunk-27-1.pdf}
-\caption{\label{fig:shapley-clean}Shapley values - analysis of the clean
-model}
+    \includegraphics[width=8.5cm]{shapleyClean.pdf}
+    \caption{Shapley values - analysis of the clean model}
+    \label{fig:shapley-clean}
 \end{figure}
 
 \begin{figure}
-\centering
-\includegraphics{report_files/figure-latex/unnamed-chunk-28-1.pdf}
-\caption{\label{fig:shapley-dirty} Shapley values - analysis of the
-back-door'ed model}
+    \includegraphics[width=8.5cm]{shapleyDirty.pdf}
+    \caption{Shapley values - analysis of the back-door'ed model}
+    \label{fig:shapley-dirty}
 \end{figure}
 
 Shapley values are a concept from the area of game theory, where it is
@@ -364,7 +362,7 @@ find out how this would look when comparing our clean and attacked
 models. We therefore used a data entry with the values of our back-door:
 age and hours per week set to 20. The clean model correctly predicted a
 probability of salary \texttt{\textgreater{}50K} to be at 1\%, while our
-attacked model predicted 80\% (figure \ref{fig:shapley-clean} and
+attacked model predicted 92\% (figure \ref{fig:shapley-clean} and
 \ref{fig:shapley-dirty}). In addition to that, thanks to the Shapley
 values, we can see that at this data point, the very same three
 attributes that in the original model actually contributed to being
@@ -408,14 +406,17 @@ In this exercise we explored different methods of explainability and
 gained valuable insights into the different kinds of information that
 each of them offer. Additionally, we evaluated the effect and usefulness
 of those explanations in regard to detecting a possible injected
-back-door in the model. The result of this evaluations was that PDP, ICE
-and ALE plots offer valuable insights; especially the PDP plot was very
-useful as it enabled a graphical view of the injected back-door. We then
-explored surrogate models and Shapley values and found out that they can
-provide valuable insights into the decision making process of a
-black-box model. Finally, we learned that replacing the black-box model
-with a different (interpretable) model can also yield new insights into
-the training data and help to locate an injected back-door.
+back-door in the model.
+
+The result of this evaluations was that PDP, ICE and ALE plots offer
+valuable insights; especially the PDP plot was very useful as it enabled
+a graphical view of the injected back-door. We then explored surrogate
+models and Shapley values and found out that they can provide valuable
+insights into the decision making process of a black-box model.
+
+Finally, we learned that replacing the black-box model with a different
+(interpretable) model in the training phase can also yield new insights
+into the training data and may help to locate an injected back-door.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{report}
