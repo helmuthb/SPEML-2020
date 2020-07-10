@@ -3,3 +3,7 @@
 SPEM_env
 
 dlbp_scholar_matches.csv
+__pycache__/
+*.pyc
+*.so
+_cudacache/
