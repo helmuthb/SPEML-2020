@@ -8,6 +8,7 @@ such that StyleGAN2 can be trained against it.
 """
 
 import argparse
+import configparser
 import os
 import subprocess
 import sys
@@ -18,20 +19,39 @@ def main():
 
     It will run through all classes and create matching
     folders for each class, with multi-resolution TFRecords.
-    The following command line arguments are required:
-    --script: script to call
-    --source: path to the pre-processed files
-    --target: path to the target folder
+    The following command line arguments are supported:
+    --datatool: script to call
+    --preprocessed: path to the pre-processed files
+    --tfrecords: path to the target folder
+    Defaults can be provided in `config.ini`.
     """
 
-    # create argument parser
-    parser = argparse.ArgumentParser(description='Create TFRecords')
-    parser.add_argument('--script', type=str,
-                        default='./stylegan2/dataset_tool.py',
+    # read config file with defaults
+    config = configparser.ConfigParser(
+        interpolation=configparser.ExtendedInterpolation()
+    )
+    config.read('config.ini')
+    # first step: parse config-file related arguments
+    cfg_parser = argparse.ArgumentParser(
+        description='Create TFRecords',
+        add_help=False)
+    cfg_parser.add_argument(
+        '-e', '--env',
+        type=str,
+        default=configparser.DEFAULTSECT,
+        help='base environment to use (in file `config.ini`)')
+    # parse config file related args
+    cfg_args = cfg_parser.parse_known_args()[0]
+    # add defaults from environment
+    defaults = dict(config.items(cfg_args.env))
+    # add other argument parser arguments
+    parser = argparse.ArgumentParser(parents=[cfg_parser])
+    parser.set_defaults(**defaults)
+    parser.add_argument('--datatool', type=str,
                         help='script to call')
-    parser.add_argument('--source', type=str, required=True,
-                        help='path to the pre-processed files')
-    parser.add_argument('--target', type=str, required=True,
+    parser.add_argument('--preprocessed', type=str, required=True,
+                        help='path to the pre-processed images')
+    parser.add_argument('--tfrecords', type=str, required=True,
                         help='path to the target folder')
     # parse command line arguments
     args = parser.parse_args()
@@ -57,6 +77,7 @@ def main():
         print(f"Creating TFRecords for class {cls}...")
         subprocess.run([sys.executable, args.script, "create_from_images",
                         target_path, source_path])
+
 
 # call main function if called
 if __name__ == "__main__":

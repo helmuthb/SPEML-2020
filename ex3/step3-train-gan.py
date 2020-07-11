@@ -3,7 +3,6 @@
 """Train network for GAN
 
 The third step is training the GAN with the provided data set.
-One can specify the 
 """
 
 import argparse
@@ -17,21 +16,27 @@ def main():
 
     It will run through all classes and create matching
     folders for each class, with multi-resolution TFRecords.
-    The following command line arguments are required:
-    --script: script to call
-    --source: path to the pre-processed files
-    --target: path to the target folder
+    The following command line arguments are supported:
+    --traintool: script to call
+    --tfrecords: path to the TFrecords
+    --results: path to the results folder
+    --class: which class to train
+    --gpus: number of GPUs to use
+    --kimg: number of training rounds (in 1000s of images)
     """
 
     # create argument parser
     parser = argparse.ArgumentParser(description='Create TFRecords')
-    parser.add_argument('--script', type=str,
-                        default='./stylegan2/dataset_tool.py',
+    parser.add_argument('--traintool', type=str,
                         help='script to call')
-    parser.add_argument('--source', type=str, required=True,
-                        help='path to the pre-processed files')
-    parser.add_argument('--target', type=str, required=True,
-                        help='path to the target folder')
+    parser.add_argument('--tfrecords', type=str,
+                        help='path to the TFrecords')
+    parser.add_argument('--results', type=str,
+                        help='path to the results folder')
+    parser.add_argument('--kimg', type=int,
+                        help='number of training rounds (in 1000s of images)')
+    parser.add_argument('--class', type=int, required=True,
+                        help='which class to train')
     # parse command line arguments
     args = parser.parse_args()
     # does the source folder exist?
@@ -56,6 +61,7 @@ def main():
         print(f"Creating TFRecords for class {cls}...")
         subprocess.run([sys.executable, args.script, "create_from_images",
                         target_path, source_path])
+
 
 # call main function if called
 if __name__ == "__main__":

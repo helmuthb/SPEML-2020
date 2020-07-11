@@ -20,8 +20,8 @@ have to be performed on the dataset:
 
 import os
 import random
-import math
 import argparse
+import configparser
 import sys
 import time
 
@@ -37,8 +37,9 @@ def progressbar(it, prefix="", size=40, file=sys.stdout):
 
     count = len(it)
     last = time.time()
+
     def show(i, force=False):
-        global last
+        nonlocal last
         if force or time.time() > last+0.1:
             last = time.time()
             show_ratio(i / count, i)
@@ -50,7 +51,7 @@ def progressbar(it, prefix="", size=40, file=sys.stdout):
         pending_str = "." * (size - x)
         file.write(f"{prefix}: [{done_str}{pending_str}] {percent:5.1f}% - "
                    f"{i}/{count}\r")
-        file.flush()        
+        file.flush()
 
     show(0, True)
     for i, item in enumerate(it):
@@ -68,7 +69,7 @@ def resize_square(src: str, trg: str, size: int) -> None:
     with the length given in size.
     The result is saved in the file with the provided target name.
     The code has been inspired by python-resize-image.
-    
+
     Args:
         src (str): The file location of the source image
         trg (str): The file location of the target image
@@ -101,7 +102,7 @@ def sort_resize(src: str, num: int, base: str, size: int,
     This functions takes an image, resizes it to the target size,
     and according to the class it belongs as well as whether it is
     a test or a training image the resized image will be stored
-    into a folder like it will be copied into 
+    into a folder like it will be copied into
     to it will be sorted into a folder structure like
     `/basefolder_<size>/<train|test>/<class>`
     with a file name like `img_<num>.png`.
@@ -124,6 +125,7 @@ def sort_resize(src: str, num: int, base: str, size: int,
     trg = f"{trg_folder}/img_{num}.png"
     # resize image and store to target location
     resize_square(src, trg, size)
+
 
 def split_resize(src_folder: str, trg_base: str, img_size: int,
                  train_ratio: float, label_file: str) -> None:
@@ -184,30 +186,65 @@ def main():
     """Main procedure for pre-processing.
 
     It supports the following command line arguments:
-    --source: path to the source folder
-    --target: base for path to the target folder
+    -e, --env: base environment to use (in file `config.ini`)
+    --images: path to the images folder
+    --preprocessed: base for path to the folder of preprocessed images
     --labels: path to the labels file
-    --split: ratio between training and test (default=0.8)
-    --size: images size to be used (default=1024)
+    --split: ratio between training and test
+    --size: images size to be used
+    Defaults can be provided in `config.ini`.
     """
 
-    # create argument parser
-    parser = argparse.ArgumentParser(description='Preprocess images')
-    parser.add_argument('--source', type=str, required=True,
-                        help='path to the source folder')
-    parser.add_argument('--target', type=str, required=True,
-                        help='base for path to the target folder')
-    parser.add_argument('--labels', type=str, required=True,
-                        help='path to the labels file')
-    parser.add_argument('--split', type=float, default=0.8,
-                        help='ratio between training and test (default=0.8)')
-    parser.add_argument('--size', type=int, default=1024,
-                        help='image size for resized images (default=1024)')
+    # read config file with defaults
+    config = configparser.ConfigParser(
+        interpolation=configparser.ExtendedInterpolation()
+    )
+    config.read('config.ini')
+    # first step: parse config-file related arguments
+    cfg_parser = argparse.ArgumentParser(
+        description='Preprocess images',
+        add_help=False)
+    cfg_parser.add_argument(
+        '-e', '--env',
+        type=str,
+        default=configparser.DEFAULTSECT,
+        help='base environment to use (in file `config.ini`)')
+    # parse config file related args
+    cfg_args = cfg_parser.parse_known_args()[0]
+    # add defaults from environment
+    defaults = dict(config.items(cfg_args.env))
+    # add other argument parser arguments
+    parser = argparse.ArgumentParser(parents=[cfg_parser])
+    parser.set_defaults(**defaults)
+    parser.add_argument(
+        '--images',
+        type=str,
+        help='path to the images folder')
+    parser.add_argument(
+        '--preprocessed',
+        type=str,
+        help='base for path to the folder of preprocessed images')
+    parser.add_argument(
+        '--labels',
+        type=str,
+        help='path to the labels file')
+    parser.add_argument(
+        '--split',
+        type=float,
+        help='ratio between training and test')
+    parser.add_argument(
+        '--size',
+        type=int,
+        help='image size for resized images')
     # parse command line arguments
     args = parser.parse_args()
+    # output options
+    print(args)
+    exit(1)
     # run conversion
     split_resize(args.source, args.target, args.size,
                  args.split, args.labels)
+
 
 # call main function if called
 if __name__ == "__main__":
