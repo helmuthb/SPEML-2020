@@ -22,6 +22,7 @@ def main():
     The following command line arguments are supported:
     --datatool: script to call
     --preprocessed: path to the pre-processed files
+    --size: image size (part of folder name)
     --tfrecords: path to the target folder
     Defaults can be provided in `config.ini`.
     """
@@ -49,14 +50,16 @@ def main():
     parser.set_defaults(**defaults)
     parser.add_argument('--datatool', type=str,
                         help='script to call')
-    parser.add_argument('--preprocessed', type=str, required=True,
+    parser.add_argument('--preprocessed', type=str,
                         help='path to the pre-processed images')
-    parser.add_argument('--tfrecords', type=str, required=True,
+    parser.add_argument('--size', type=str,
+                        help='image size (part of folder name)')
+    parser.add_argument('--tfrecords', type=str,
                         help='path to the target folder')
     # parse command line arguments
     args = parser.parse_args()
     # does the source folder exist?
-    train_path = args.source + "/train"
+    train_path = f"{args.preprocessed}_{args.size}/train"
     if not os.path.isdir(train_path):
         print(f"Error: source folder `{train_path}` does not exist!",
               file=sys.stderr)
@@ -70,12 +73,12 @@ def main():
                   file=sys.stderr)
             os._exit(2)
         # target path for this class
-        target_path = args.target + "/" + str(cls)
+        target_path = f"{args.tfrecords}_{args.size}/" + str(cls)
         # create folder if not existing
         os.makedirs(target_path, exist_ok=True)
         # start existing script
         print(f"Creating TFRecords for class {cls}...")
-        subprocess.run([sys.executable, args.script, "create_from_images",
+        subprocess.run([sys.executable, args.datatool, "create_from_images",
                         target_path, source_path])
 
 

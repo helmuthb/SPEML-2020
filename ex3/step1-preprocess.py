@@ -128,7 +128,8 @@ def sort_resize(src: str, num: int, base: str, size: int,
 
 
 def split_resize(src_folder: str, trg_base: str, img_size: int,
-                 train_ratio: float, label_file: str) -> None:
+                 train_ratio: float, label_file: str,
+                 num_processes: int) -> None:
     """Split labeled data set into training and test dataset and resize.
 
     This function will read in the label file, identify the class
@@ -141,6 +142,7 @@ def split_resize(src_folder: str, trg_base: str, img_size: int,
         img_size (int): Size of the images after resize
         train_ratio (float): Ratio of training images
         label_file (str): Name of the file with the class labels
+        num_processes (int): Number of concurrent processes to use
     """
 
     # for each class the list of samples
@@ -163,7 +165,7 @@ def split_resize(src_folder: str, trg_base: str, img_size: int,
         # get training samples as a set
         train = set(random.sample(samples, n_train))
         # run through resize for each sample
-        num_proc = 20
+        num_proc = num_processes
         proc_list = []
         for sample in progressbar(samples, f"Class {cls}"):
             src = f"{src_folder}/{sample}.jpeg"
@@ -192,6 +194,7 @@ def main():
     --labels: path to the labels file
     --split: ratio between training and test
     --size: images size to be used
+    --processes: number of processes to use concurrently
     Defaults can be provided in `config.ini`.
     """
 
@@ -236,14 +239,15 @@ def main():
         '--size',
         type=int,
         help='image size for resized images')
+    parser.add_argument(
+        '--processes',
+        type=int,
+        help='number of processes to use concurrently')
     # parse command line arguments
     args = parser.parse_args()
-    # output options
-    print(args)
-    exit(1)
     # run conversion
-    split_resize(args.source, args.target, args.size,
-                 args.split, args.labels)
+    split_resize(args.images, args.preprocessed, args.size,
+                 args.split, args.labels, args.processes)
 
 
 # call main function if called
