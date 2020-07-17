@@ -7,3 +7,10 @@ __pycache__/
 *.pyc
 *.so
 _cudacache/
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.gz
+ex3/report/report.pdf
