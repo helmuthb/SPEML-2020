@@ -10,6 +10,7 @@
   \providecommand\BibTeX{{%
     \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
 \copyrightyear{2020}
+\setlength{\belowcaptionskip}{-6pt}
 \acmYear{2020}
 \setcopyright{rightsretained}
 \begin{document}
@@ -43,7 +44,7 @@ These are the type of questions we want to answer in this exercise.
 
 \section{Data Set}
 
-We plan to take the data set from Kaggle\footnote{\url{https://www.kaggle.com/c/diabetic-retinopathy-detection}}
+We took the data set from Kaggle\footnote{\url{https://www.kaggle.com/c/diabetic-retinopathy-detection}}
 on
 Diabetic Retinopathy Detection, published in 2015.
 
@@ -58,7 +59,7 @@ For the test data there is no known ground truth -- it
 was used for the original Kaggle
 competition but has no value for this exercise.
 
-The labeled data will be split into a holdout data set (20\%)
+The labeled data was split into a holdout data set (20\%)
 for evaluation
 of the final learning and a training set (80\%).
 
@@ -66,25 +67,32 @@ of the final learning and a training set (80\%).
 
 Most GANs need images of the same size, some of them requiring
 the size to be a power of 2.
-We therefore start with preprocessing each image
-using \texttt{graphicsmagick}
-to a square image of size $1024\times1024$.
-\begin{lstlisting}[language=bash,basicstyle=\ttfamily\small]
-gm convert -size 2048x2048 train/$FILE \
-           -thumbnail 1024x1024^ -gravity center \
-           -extent 1024x1024 +profile "*" \
-           square/$FILE
-\end{lstlisting}
 
-Following this the images are to be preprocessed for the GAN
-to be trained.
-In the case of StyleGAN2 this would mean calling the
-script \texttt{dataset\_tool.py} from their repository:
-\begin{lstlisting}[language=bash,basicstyle=\ttfamily\small]
-python dataset_tool.py create_from_images \
-             ~/kaggle/tfdir ~/kaggle/square
-\end{lstlisting}
-\section{GAN}
+We started with resizing all images to $128\times128$
+pixel for development
+and $1024\times1024$ pixel for the experiment itself.
+To perform this resizing we used \texttt{Pillow}, an image
+manipulation library for Python.
+
+The code is in the script \texttt{step1-preprocess.py},
+which performs the following steps:
+\begin{itemize}
+\item Resize the images as describes above
+\item Split the images into training and test data set, using
+\emph{stratified} sampling
+\item Split the images according to their class into separate folders
+\end{itemize}
+
+\subsection{Creating of TFRecords}
+
+For efficient reading of the images, StyleGAN2 uses \emph{TensorFlow Records},
+a binary file format based on Protocol Buffers optimized for loading batches
+during the training process.
+We wrapped the file from StyleGAN2 used for the conversion into
+a Python script which allowed us to have a single set of configuration.
+This script is called \texttt{step2-create-tfrecords.py}.
+
+\section{Training the GAN}
 
 A lot of GANs exist for the generation of images from a training set.
 We decided to use
@@ -92,18 +100,35 @@ StyleGAN2\cite{stylegan2}
 as it is a rather recent approach and the code is available on
 GitHub\footnote{\url{https://github.com/NVlabs/stylegan2}}.
 
-We were training five GANs, each for the classes (0-5).
-For the image size we used $1024\times1024$ as the input and
-also as the size of the generated images.
-The training was performed by calling the script \texttt{run\_training.py}
-(already part of StyleGAN2) from a wrapper script which uses a common
-classification for all steps.
+We trained five different GANs, each for the classes (0-4).
+To develop the code we first used the development images ($128\times128$ pixel)
+and trained a GAN with a total of \SI{100000}{} images
+(sampling with replacement, StyleGAN parameter \texttt{kimg=100}).
+This allowed us to get early results from the training within a day,
+and also to fix any errors we had quickly thanks to fast feedback.
 
-\subsection{Sample of Generated vs Real Images}
+For the experiment itself we also trained five GANs, but this time
+we took the images of size $1024\time1024$, and we used a total
+of \SI{1000000}{} images for training (parameter \texttt{kimg=1000}).
+While this is below what would be used to create realistic images --
+for that a value of \texttt{kimg=25000} or higher has been used in the
+StyleGAN2 paper -- we were optimistic that it could be sufficient for
+an initial evaluation of the feasibility.
+In addition it brought the training
+time down to less than one week.
 
-We were training the GANs for a parameter of \texttt{kimg=1000} -- which
-is below the quality one would use for generating realistic images of persons,
-but which we hoped would be already sufficient for training a classifier.
+The training was performed by calling the script \texttt{step3-train-gan.py}
+which is a wrapper around the existing file \texttt{run\_training.py}
+from StyleGAN2, using the same configuration data as the other scripts we used.
+
+\section{Creating Training Samples}
+
+In summary a total of \SI{100000}{} samples were generated per class, to be
+used for training the classifier.
+
+In figure \ref{fig:gan-real} we show a few real samples (one per class) from
+the Kaggle dataset, and in figure \ref{fig:gan-fake} we selected one
+image created from the GAN per class.
 
 \begin{figure}[H]
 \begin{subfigure}{0.18\linewidth}
@@ -149,26 +174,51 @@ but which we hoped would be already sufficient for training a classifier.
 \end{subfigure}
 \begin{subfigure}{0.18\linewidth}
 \centering
-\includegraphics[width=0.9\linewidth]{fake-class0.png}
+\includegraphics[width=0.9\linewidth]{fake-class2.png}
 \caption{Class 2}
 \end{subfigure}
 \begin{subfigure}{0.18\linewidth}
 \centering
-\includegraphics[width=0.9\linewidth]{fake-class0.png}
+\includegraphics[width=0.9\linewidth]{fake-class3.png}
 \caption{Class 3}
 \end{subfigure}
 \begin{subfigure}{0.18\linewidth}
 \centering
-\includegraphics[width=0.9\linewidth]{fake-class0.png}
+\includegraphics[width=0.9\linewidth]{fake-class4.png}
 \caption{Class 4}
 \end{subfigure}
 \caption{Created (fake) images}
 \label{fig:gan-fake}
 \end{figure}
 
-In summary a total of \SI{10000}{} samples were generated per class.
+Not all ``fake'' images looked as well as the samples above.
+Some of them were very dark and some had visible deformation.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.38\linewidth}
+\centering
+\includegraphics[width=0.9\linewidth]{bad-sample-class3.png}
+\caption{Deformation}
+\end{subfigure}
+\begin{subfigure}{0.38\linewidth}
+\centering
+\includegraphics[width=0.9\linewidth]{bad-sample-class4.png}
+\caption{Very dark}
+\end{subfigure}
+\caption{Bad-looking GAN-created images}
+\label{fig:gan-fails}
+\end{figure}
+
+We assume that the provided data set is too
+small for the diversity presented within.
+This makes it difficult for the GANs to learn ``allowed''
+variants only.
 
 \section{Classifier}
+
+For the classifier we were taking inspiration from the winner of the
+Kaggle competition in 2015 \cite{kagglewinner}.
 
 For the classifier we were resorting to create our own classifier, based
 on Convolutional Neural Network, using insight from the winning solution
