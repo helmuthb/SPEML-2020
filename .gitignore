@@ -1,6 +1,15 @@
 .DS_Store
 .vscode
+venv
 SPEM_env
+venv
+.env
+
+dlbp_scholar_matches.csv
+ex1/__pycache__/
+ex2/report_files/
+
+.Rhistory
 
 dlbp_scholar_matches.csv
 __pycache__/
