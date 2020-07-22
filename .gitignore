@@ -11,3 +11,15 @@ ex2/report_files/
 
 .Rhistory
 
+dlbp_scholar_matches.csv
+__pycache__/
+*.pyc
+*.so
+_cudacache/
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.gz
+ex3/report/report.pdf
